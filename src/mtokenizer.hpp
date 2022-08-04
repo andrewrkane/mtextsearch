@@ -30,13 +30,14 @@ class StringList { protected: char* d; int dsize; int dused; public:
 };
 
 class MTokenizer { protected:
-  bool tk[256]; inline void setTK(int s, int e, bool v) { for (int i=s;i<=e;i++) tk[i]=v; }
-  void setupTK() { setTK(0,127,false); setTK(128,255,true); // AK: allow any extended to support UTF-8
-    setTK('a','z',true); setTK('A','Z',true); setTK('0','9',true); } //tk['<']=true;
+  bool me[256], tk[256], tkmath[256]; inline void set(bool* t, int s, int e, bool v=true) { for (int i=s;i<=e;i++) t[i]=v; }
+  void setupArrays() { set(me,0,255,false); me[' ']=me['\t']=me['\r']=me['\n']=me['#']=true;
+    set(tk,0,127,false); set(tk,128,255); set(tk,'a','z'); set(tk,'A','Z'); set(tk,'0','9');
+    for (int i=0;i<256;i++) tkmath[i]=tk[i]; tkmath['#']=true; } //tk['<']=true;
 
 public:
   class TokenList : protected StringList { protected: vector<int> v; //relative to base so realloc works
-    struct charcmp { cchar* d; charcmp(char* base) {d=base;} bool operator()(int a, int b) const { return strcmp(d+a, d+b)<0; } };
+    struct charcmp { cchar* d; charcmp(char* base) {d=base;} bool operator()(const int a, const int b) const { return strcmp(d+a, d+b)<0; } };
   public:
     inline void clear() { v.clear(); StringList::clear(); }
     inline void push_back(cbyte* s, int sl) { v.push_back(pstem(tolower(addcopy((cchar*)s,sl)),sl)-d); } // pstem + casefold
@@ -44,18 +45,28 @@ public:
     inline cchar* const operator[](int i) const { return d+v.at(i); } // cannot edit values
     inline void sort() { std::sort(v.begin(), v.end(), charcmp(d)); }
   };
-  inline MTokenizer() { setupTK(); }
+  inline MTokenizer() { setupArrays(); }
   // used by minvert
-  inline void processI(cchar* data, int size, /*out*/TokenList& tokens) {
+  inline void process(cchar* data, int size, bool bMath,/*out*/TokenList& tokens) {
     cbyte* d=(cbyte*)data; cbyte* dend=d+size;
-    for(;d<dend;d++) {
-      if (tk[*d]) {
-        cbyte* s=d++;
-        for(;;d++) { if (d>=dend || !tk[*d]) { tokens.push_back(s,d-s); break; } }
+    if (bMath) {
+      for(;d<dend;d++) {
+        if (tkmath[*d]) { cbyte* s=d++;
+          if (*s=='#') { // math tuples
+            for (;;d++) { if (d>=dend || me[*d]) { if (*d=='#') { tokens.push_back(s,d-s+1); } else { d=s; } break; } }
+          } else { // non-math doesn't start with #
+            for(;;d++) { if (d>=dend || !tkmath[*d]) { tokens.push_back(s,d-s); break; } }
+          }
+        }
+      }
+    } else {
+      for(;d<dend;d++) {
+        if (tk[*d]) { cbyte* s=d++;
+          //if (d<dend && *(d-1)=='<' && *d=='/') d++; // end tags
+          for(;;d++) { if (d>=dend || !tk[*d]) { tokens.push_back(s,d-s); break; } }
+        }
       }
     }
     //for (int i=0;i<tokens.size();i++) { cout<<tokens.at(i)<<" "; } cout<<endl;
   }
-  // used by msearch
-  inline void processS(string data, /*out*/TokenList& tokens) { processI(data.c_str(),data.length(),tokens); }
 };

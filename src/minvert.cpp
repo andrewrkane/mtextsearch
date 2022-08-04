@@ -85,7 +85,7 @@ class Dictionary : protected map<cchar*, PostingsList, charcmp> { protected:
     for (iterator it=begin();it!=end();++it) { out<<it->first<<"\t"; it->second.output(out); out<<endl; } }
 };
 
-class MInvert { protected:
+class MInvert { public: bool bMath; protected:
   vector<string> docnames; vector<int> docsizes; uint64_t totalpostings; int empty;
   MTokenizer tokenizer; Dictionary dict;
 
@@ -108,7 +108,7 @@ class MInvert { protected:
   void doIndex(const string docname, /*in/edited*/ char* data, int size) {
     if (docname.compare("")==0) { cerr<<"ERROR: missing docname"<<endl; exit(-1); }
     // split into tokens
-    tokens.clear(); tokenizer.processI(data,size,tokens); if (tokens.size()<=0) { empty++; return; } // drop empty
+    tokens.clear(); tokenizer.process(data,size,bMath,tokens); if (tokens.size()<=0) { empty++; return; } // drop empty
     // setup document metadata
     int docid=docnames.size(); docnames.push_back(docname);
     docsizes.push_back(tokens.size()); totalpostings+=tokens.size();
@@ -158,13 +158,13 @@ class MInvert { protected:
   }
 
 public:
-  MInvert() { totalpostings=0L; empty=0; }
+  MInvert() { bMath=false; totalpostings=0L; empty=0; }
 
   void input(istream& in, cchar* fn) { doIndexTREC(in,fn); }
   void input(cchar* fn) { ifstream in(fn); input(in,fn); }
 
   void output(ostream& out) {
-    out<<"text.mindex.1"<<endl;
+    out<<(bMath?"math":"text")<<".mindex.1"<<endl;
     int s=docnames.size(); cerr<<"Output "<<s<<" docs"<<endl;
     out<<s<<endl; for (int i=0;i<s;i++) { out<<docsizes[i]<<"\t"<<docnames[i]<<endl; } out<<endl;
     dict.output(out);
@@ -172,12 +172,16 @@ public:
 };
 
 static void usage() {
-  cerr<<"Usage: ./minvert.exe datafile ... > out.mindex"<<endl;
-  cerr<<"       ./minvert.exe < datafile > out.mindex"<<endl; exit(-1); }
+  cerr<<"Usage: ./minvert.exe [-M] datafile ... > out.mindex"<<endl;
+  cerr<<"       ./minvert.exe [-M] < datafile > out.mindex"<<endl; exit(-1); }
 
 int main(int argc, char *argv[]) {
-  MInvert ms;
-  if (argc==1) { ms.input(cin,"stdin"); } else if (argc>1) { for (int i=1;i<argc;i++) ms.input(argv[i]); } else usage(); // input
+  MInvert ms; int s=1;
+  for (;;) {
+    if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
+    else break;
+  }
+  if (argc-s==0) { ms.input(cin,"stdin"); } else if (argc-s>0) { for (;s<argc;s++) ms.input(argv[s]); } else usage(); // input
   ms.output(cout); // output
   return 0;
 }

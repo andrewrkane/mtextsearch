@@ -1,4 +1,4 @@
-// (C) Copyright 2019 Andrew R. J. Kane <arkane at uwaterloo.ca>, All Rights Reserved.
+// (C) Copyright 2019 Andrew R. J. Kane <arkane@uwaterloo.ca>, All Rights Reserved.
 //     Released for academic purposes only, All Other Rights Reserved.
 //     This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
@@ -35,7 +35,7 @@ class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; f
 bool PLIComp(PLIter*& i, PLIter*& j) { return i->current().id < j->current().id; }
 struct PLIV : public vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} } };
 
-class MSearch {  protected: int k;
+class MSearch { public: bool bMath; float alpha; protected: int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
   ifstream* postfile; DictionaryTwoLayer* dict; //dict(token->location) points into postfile
   MTokenizer tokenizer;
@@ -54,7 +54,8 @@ class MSearch {  protected: int k;
       byte* data=new byte[blen];
       in.read((char*)data,blen);
       { string line; getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: index extra postings "<<token<<endl; exit(-1);} }
-      PLIter* pli=new PLIter(docs,data,blen,count); listIters.push_back(pli); //iterator owns data array
+      float weight=count; if (bMath) { weight*=(token[0]=='#'?alpha:1.0-alpha); }
+      PLIter* pli=new PLIter(docs,data,blen,weight); listIters.push_back(pli); //iterator owns data array
       //cerr<<"Found \'"<<token<<"\' count="<<count<<" plsize="<<pli->plsize<<" bytelength="<<blen<<endl;
     }
   }
@@ -69,7 +70,6 @@ class MSearch {  protected: int k;
       //cerr<<"idf*weight="<<pli.idf<<endl;
     }
     while (base<count) {
-      // TODO: do real skipping with heap
       sort(listIters.begin()+base, listIters.end(), PLIComp);
       //for (int i=base;i<count;i++) {cerr<<listIters[i].second[listIters[i].first].first<<" ";} cerr<<endl;
       // score iterators at docid
@@ -92,11 +92,12 @@ class MSearch {  protected: int k;
   }
 
 public:
-  MSearch() { docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; k=10; }
+  MSearch() { bMath=false; alpha=0.18; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; k=10; }
   virtual ~MSearch() { if (docs!=NULL) delete docs; docs=NULL;
     if (dict!=NULL) delete dict; dict=NULL;
     if (postfile!=NULL) postfile->close(); postfile=NULL; }
   void setk(int t) { if (t<=0) {cerr<<"ERROR: invalid k="<<t<<endl;exit(-1);} k=t; }
+  void setAlpha(float a) { if (a<0||a>1) {cerr<<"ERROR: invalid alpha "<<a<<endl; exit(-1);} alpha=a; }
 
   void query(string query) {
     chrono::high_resolution_clock::time_point s=chrono::high_resolution_clock::now();
@@ -105,7 +106,7 @@ public:
     string prefix=""; size_t cut=query.find(';');
     if (cut!=string::npos) { prefix=query.substr(0,cut)+"\t"; query=query.substr(cut+1); }
     // split into tokens
-    MTokenizer::TokenList tokens; tokenizer.processS(query, tokens); if (tokens.size()<=0) {cerr<<"empty query"<<endl; return;} //TODO: run unique on tokens
+    MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),bMath,tokens); if (tokens.size()<=0) {cerr<<"empty query"<<endl; return;}
     //cerr<<"found "<<tokens.size()<<" tokens"<<endl;
     // stats
     int doccount=docs->size(); float avgDocSize=(double)totaltokens/doccount;
@@ -125,9 +126,9 @@ public:
     postfile=new ifstream(fn); string line; //cerr<<"Input "<<fn<<endl;
     ifstream& in=*postfile; if (!in.is_open()) {cerr<<"ERROR: Could not open input file "<<fn<<endl; exit(-1);}
     getline(in,line); if (!in) {cerr<<"ERROR: Empty input file "<<fn<<endl; exit(-1);}
-    if (line.compare("text.mindex.1")!=0) {cerr<<"ERROR: Unknown file format "<<fn<<" "<<line<<endl; exit(-1);}
+    if (line.compare((bMath?"math.mindex.1":"text.mindex.1"))!=0) {cerr<<"ERROR: Unknown file format "<<fn<<" "<<line<<endl; exit(-1);}
     // meta
-    string metafn=(string)fn+".meta"; ifstream metain(metafn);
+    string metafn=(string)fn+".meta"; ifstream metain(metafn); if (!metain) {cerr<<"ERROR: loading meta file "<<metafn<<endl; exit(-1);}
     struct stat sb; int er=stat(fn,&sb); uint64_t fsize=(uint64_t)sb.st_size; uint64_t t; metain>>t; if (er==-1 || t!=fsize) {cerr<<"ERROR: meta "<<metafn<<" wrong size match for "<<fn<<endl; exit(-1);}
     getline(metain,line); if (line.compare("")!=0) {cerr<<"ERROR: meta "<<metafn<<" extra size match info "<<line<<endl; exit(-1);}
     docs=new DocnamesTwoLayer(metain,metafn.c_str()); metain>>totaltokens; getline(metain,line); if (line.compare("")!=0) {cerr<<"ERROR: meta "<<metafn<<" extra totaltokens "<<line<<endl; exit(-1);}
@@ -137,13 +138,15 @@ public:
   }
 };
 
-static void usage() {cerr<<"Usage: ./msearch.exe [-k#] data.mindex < query.txt"<<endl; exit(-1);}
+static void usage() {cerr<<"Usage: ./msearch.exe [-k#] [-M] [-a#.#] data.mindex < query.txt"<<endl; exit(-1);}
 
 int main(int argc, char *argv[]) {
   if (argc<2) usage();
   MSearch ms; int s=1;
   for (;;) {
     if (s<argc && strstr(argv[s],"-k")==argv[s]) { ms.setk(stof(argv[s]+2)); s++; }
+    else if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
+    else if (s<argc && strstr(argv[s],"-a")==argv[s]) { ms.setAlpha(stof(argv[s]+2)); s++; }
     else if (argc-s!=1) usage();
     else break;
   }

@@ -28,13 +28,16 @@ class MIndex { public:
 
   const char* fn; ifstream in; int doccount, plcount; //index level
   string token; byte* data; int dalloc; DataH h; //postings list level
+  bool bMath;
   
   MIndex(const char* f) : in(f) { fn=f; doccount=plcount=0; token=""; data=(byte*)malloc(dalloc=1<<20);
     if (!in.is_open()) {cerr<<"ERROR: Could not open input file "<<fn<<endl; exit(-1);}
     // decide what type of file
     string line; getline(in, line);
     if (!in || line.compare("")==0) {cerr<<"ERROR: Empty input file "<<fn<<endl; exit(-1);}
-    if (line.compare("text.mindex.1")!=0) {cerr<<"ERROR: Unknown file format in "<<fn<<", found ("<<line<<")."<<endl; exit(-1);}
+    if (line.compare("text.mindex.1")==0) { bMath=false; }
+    else if (line.compare("math.mindex.1")==0) { bMath=true; }
+    else {cerr<<"ERROR: Unknown file format in "<<fn<<", found ("<<line<<")."<<endl; exit(-1);}
   }
 
   void read_doccount() { in>>doccount; string line; getline(in, line); }
@@ -87,7 +90,9 @@ class AccumH { public: vector<MIndex::DataH*> dh; vector<uint> deltaid; uint psi
 
 void output(ostream& out, vector<MIndex*>& ui) { // uncompressed
   int size=ui.size();
-  out<<"text.mindex.1"<<endl;
+  // format
+  for (int k=1;k<size;k++) { if (ui[k]->bMath!=ui[0]->bMath) {cerr<<"ERROR: Inconsistent file formats."<<endl; exit(-1);} }
+  out<<(ui[0]->bMath?"math":"text")<<".mindex.1"<<endl;
   // doccount
   int base=0;
   for (int k=0;k<size;k++) { ui[k]->h.base=base; ui[k]->read_doccount(); base+=ui[k]->doccount; }

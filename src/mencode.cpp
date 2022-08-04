@@ -44,7 +44,7 @@ public:
     if (!in.is_open()) {cerr<<"ERROR: Could not open input file "<<fn<<endl; exit(-1);}
     // decide what type of file
     getline(in,line); if (!in) {cerr<<"ERROR: Empty input file "<<fn<<endl; exit(-1);}
-    if (line.compare("text.mindex.1")!=0) {cerr<<"ERROR: Unknown format "<<fn<<" found "<<line<<endl; exit(-1);}
+    if (line.compare("text.mindex.1")!=0 && line.compare("math.mindex.1")!=0) {cerr<<"ERROR: Unknown format "<<fn<<" found "<<line<<endl; exit(-1);}
     // doccount
     int doccount; in>>doccount;
     getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: index "<<fn<<"doccount info "<<line<<endl; exit(-1);}
