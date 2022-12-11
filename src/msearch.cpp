@@ -35,7 +35,7 @@ class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; f
 bool PLIComp(PLIter*& i, PLIter*& j) { return i->current().id < j->current().id; }
 struct PLIV : public vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} } };
 
-class MSearch { public: bool bMath; float alpha; protected: int k;
+class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; set<string> keywords; int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
   ifstream* postfile; DictionaryTwoLayer* dict; //dict(token->location) points into postfile
   MTokenizer tokenizer;
@@ -92,10 +92,11 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
   }
 
 public:
-  MSearch() { bMath=false; alpha=0.18; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; k=10; }
+  MSearch() { bMath=false; alpha=0.18; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; bkeywords=false; k=10; }
   virtual ~MSearch() { if (docs!=NULL) delete docs; docs=NULL;
     if (dict!=NULL) delete dict; dict=NULL;
     if (postfile!=NULL) postfile->close(); postfile=NULL; }
+  void setT(cchar* keywordsfile) { bkeywords=true; loadkeywords(keywordsfile, keywords); }
   void setk(int t) { if (t<=0) {cerr<<"ERROR: invalid k="<<t<<endl;exit(-1);} k=t; }
   void setAlpha(float a) { if (a<0||a>1) {cerr<<"ERROR: invalid alpha "<<a<<endl; exit(-1);} alpha=a; }
 
@@ -106,7 +107,9 @@ public:
     string prefix=""; size_t cut=query.find(';');
     if (cut!=string::npos) { prefix=query.substr(0,cut)+"\t"; query=query.substr(cut+1); }
     // split into tokens
-    MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),bMath,tokens); if (tokens.size()<=0) {cerr<<"empty query"<<endl; return;}
+    MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),bMath,tokens);
+    if (bkeywords) tokens.removenotin_dump(keywords); // remove non-math token if not in keywords
+    if (tokens.size()<=0) {cerr<<"empty query"<<endl; return;}
     //cerr<<"found "<<tokens.size()<<" tokens"<<endl;
     // stats
     int doccount=docs->size(); float avgDocSize=(double)totaltokens/doccount;
@@ -138,13 +141,14 @@ public:
   }
 };
 
-static void usage() {cerr<<"Usage: ./msearch.exe [-k#] [-M] [-a#.#] data.mindex < query.txt"<<endl; exit(-1);}
+static void usage() {cerr<<"Usage: ./msearch.exe [-T keywords.txt] [-k#] [-M] [-a#.#] data.mindex < query.txt"<<endl; exit(-1);}
 
 int main(int argc, char *argv[]) {
   if (argc<2) usage();
   MSearch ms; int s=1;
   for (;;) {
-    if (s<argc && strstr(argv[s],"-k")==argv[s]) { ms.setk(stof(argv[s]+2)); s++; }
+    if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); ms.setT(argv[s+1]); s+=2; }
+    else if (s<argc && strstr(argv[s],"-k")==argv[s]) { ms.setk(stof(argv[s]+2)); s++; }
     else if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
     else if (s<argc && strstr(argv[s],"-a")==argv[s]) { ms.setAlpha(stof(argv[s]+2)); s++; }
     else if (argc-s!=1) usage();
