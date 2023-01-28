@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <cmath> // for log()
 #include <sys/stat.h>
 
 #include "mtokenizer.hpp"

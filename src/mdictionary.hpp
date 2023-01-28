@@ -19,8 +19,8 @@ inline static int strcmp(cbyte* a, cbyte* b) { return ::strcmp((char*)a,(char*)b
 inline static void writeBytes(byte*& d, cbyte* b, uint l) { memcpy(d,b,l); d+=l; }
 inline static void writeVByte(byte*& d, uint64_t v) { byte t[10]; int i=0; for (;;i++) { t[i]=v&0x7F;v>>=7; if(v==0)break; } for (;i>0;i--) {*d++=t[i]|0x80;} *d++=t[i]; }
 inline static void writePVByte(byte*& d, uint a, uint b) {
-  if (a<15) { if (b<15) { *d++=(a&0xF)<<4|b&0xF; } else { *d++=(a&0xF)<<4|0xF; writeVByte(d,b-15); } }
-  else { if (b<15) { *d++=0xF0|b&0xF; writeVByte(d,a-15); } else { *d++=0xFF; writeVByte(d,a-15); writeVByte(d,b-15); } } }
+  if (a<15) { if (b<15) { *d++=(a&0xF)<<4|(b&0xF); } else { *d++=(a&0xF)<<4|0xF; writeVByte(d,b-15); } }
+  else { if (b<15) { *d++=0xF0|(b&0xF); writeVByte(d,a-15); } else { *d++=0xFF; writeVByte(d,a-15); writeVByte(d,b-15); } } }
 inline static uint64_t readVByte(byte*& d) { for (uint64_t v=0;;d++) { v|=*d&0x7F; if ((*d&0x80)==0) { d++; return v; } v<<=7; } }
 inline static void readPVByte(byte*& d, uint& a, uint& b) { a=(*d>>4)&0xF; b=*d++&0xF; if (a==15) a+=readVByte(d); if (b==15) b+=readVByte(d); }
 
