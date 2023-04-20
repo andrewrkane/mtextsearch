@@ -55,7 +55,7 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; set<
       byte* data=new byte[blen];
       in.read((char*)data,blen);
       { string line; getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: index extra postings "<<token<<endl; exit(-1);} }
-      float weight=count; if (bMath) { weight*=(token[0]=='#'?alpha:1.0-alpha); }
+      float weight=count/(count+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0-alpha); }
       PLIter* pli=new PLIter(docs,data,blen,weight); listIters.push_back(pli); //iterator owns data array
       //cerr<<"Found \'"<<token<<"\' count="<<count<<" plsize="<<pli->plsize<<" bytelength="<<blen<<endl;
     }
