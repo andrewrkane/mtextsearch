@@ -19,15 +19,15 @@ typedef uint8_t byte; typedef const byte cbyte; typedef const char cchar;
 inline char* tolower(/*modified*/char* s) { for (char* t=s;*t!='\0';t++) { *t=::tolower(*t); } return s; }
 inline char* pstem(/*modified*/char* s, int sl) { int k=::stem(s,0,sl-1); s[k+1]='\0'; return s; } // porter stemmer
 
-inline void loadkeywords(cchar* keywordsfile, /*in/out*/ set<string>& keywords) {
-  ifstream in(keywordsfile); if (!in) {cerr<<"ERROR: missing T file "<<keywordsfile<<endl;exit(-1);}
+inline void loadwords(cchar* wordsfile, /*in/out*/ set<string>& words) {
+  ifstream in(wordsfile); if (!in) {cerr<<"ERROR: missing file "<<wordsfile<<endl;exit(-1);}
   char b[1<<10];
   for (string line; getline(in,line);) {
-    if (line.length()>=(1<<10)) { cerr<<"dropped keyword "<<line<<endl; continue; }
+    if (line.length()>=(1<<10)) { cerr<<"dropped word "<<line<<endl; continue; }
     string s=(string)pstem(tolower(strcpy(b,line.c_str())),line.length()); //TODO: remove whitespace? punctuation?
-    keywords.insert(s);
+    words.insert(s);
   }
-  cerr<<"loaded "<<keywords.size()<<" keywords from "<<keywordsfile<<endl;
+  cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<endl;
 }
 
 // copy strings into internal storage
@@ -54,11 +54,17 @@ public:
     inline void clear() { v.clear(); StringList::clear(); }
     inline void push_back(cbyte* s, int sl) { v.push_back(pstem(tolower(addcopy((cchar*)s,sl)),sl)-d); } // pstem + casefold
     inline void swap_remove(int i) { int last=v.size()-1; if (i<last) v[i]=v[last]; v.pop_back(); }
-    inline void removenotin(const std::set<string>& keywords) {
-      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && keywords.find((*this)[i])==keywords.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
+    inline void removein(const std::set<string>& words) {
+      int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
     }
-    inline void removenotin_dump(const std::set<string>& keywords) { cerr<<"removing: ";
-      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && keywords.find((*this)[i])==keywords.end()) { cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); cerr<<endl;
+    inline void removein_dump(const std::set<string>& words) { cerr<<"removing: ";
+      int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) { cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); cerr<<endl;
+    }
+    inline void removenotin(const std::set<string>& words) {
+      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
+    }
+    inline void removenotin_dump(const std::set<string>& words) { cerr<<"removing: ";
+      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) { cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); cerr<<endl;
     }
     inline size_t size() const { return v.size(); }
     inline cchar* const operator[](int i) const { return d+v.at(i); } // cannot edit values

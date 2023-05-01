@@ -161,7 +161,7 @@ class MInvert { public: bool bMath; protected: bool bkeywords; set<string> keywo
 
 public:
   MInvert() { bMath=false; bkeywords=false; totalpostings=0L; empty=0; }
-  void setT(cchar* keywordsfile) { bkeywords=true; loadkeywords(keywordsfile, keywords); }
+  void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords); }
 
   void input(istream& in, cchar* fn) { doIndexTREC(in,fn); }
 
