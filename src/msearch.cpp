@@ -26,15 +26,15 @@ class TopkHeap : public vector<Scored> { public:
 };
 
 struct Posting { int32_t id; int32_t freq; Posting(int id, int freq) { this->id=id; this->freq=freq; } };
-class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; float idf;
-  PLIter(DocnamesTwoLayer* docs, byte* data, int blen, float weight) : p(0,0), idf(weight) { this->data=data; d=data; dend=d+blen; plsize=readVByte(d); int lastid=(plsize>1?readVByte(d):-1); next();
+class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; float w;
+  PLIter(DocnamesTwoLayer* docs, byte* data, int blen, float weight) : p(0,0), w(weight) { this->data=data; d=data; dend=d+blen; plsize=readVByte(d); int lastid=(plsize>1?readVByte(d):-1); next();
   }
   virtual ~PLIter() { delete data; data=d=dend=NULL; }
   inline const Posting& current() { return p; }
   inline bool next() { if (d>=dend) return false; p.id+=readVByte(d); p.freq=readVByte(d); return true; }
 };
 bool PLIComp(PLIter*& i, PLIter*& j) { return i->current().id < j->current().id; }
-struct PLIV : public vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} } };
+struct PLIV : public vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} resize(0); } };
 
 class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; set<string> keywords; set<string> stopwords; int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
@@ -67,8 +67,8 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; set<
     TopkHeap h(k);
     // precompute IDF for BM25
     for (int i=0;i<count;i++) { PLIter& pli=*listIters[i];
-      pli.idf*=log(1.0+((double)doccount-pli.plsize+0.5)/(pli.plsize+0.5));
-      //cerr<<"idf*weight="<<pli.idf<<endl;
+      pli.w*=log(1.0+((double)doccount-pli.plsize+0.5)/(pli.plsize+0.5));
+      //cerr<<"idf*weight="<<pli.w<<endl;
     }
     while (base<count) {
       sort(listIters.begin()+base, listIters.end(), PLIComp);
@@ -80,8 +80,8 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; set<
         // BM25 see https://en.wikipedia.org/wiki/Okapi_BM25
         float tf=p.freq*(1.2+1.0) / (p.freq + 1.2*(1.0 - 0.75 + 0.75*docs->getV(docid)/avgDocSize));
         //cerr<<"p.freq="<<p.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<endl;
-        //cerr<<"tf="<<tf<<" tf*idf="<<tf*pli.idf<<endl;
-        score += tf*pli.idf;
+        //cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<endl;
+        score += tf*pli.w;
         // advance iterators at docid
         if (!pli.next()) { swap(listIters[base], listIters[i]); base++; }
       }
