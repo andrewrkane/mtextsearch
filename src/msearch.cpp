@@ -106,13 +106,14 @@ public:
     chrono::high_resolution_clock::time_point s=chrono::high_resolution_clock::now();
     cerr<<"query: "<<query<<endl;
     // named vs normal
-    string prefix=""; size_t cut=query.find(';');
-    if (cut!=string::npos) { prefix=query.substr(0,cut)+"\t"; query=query.substr(cut+1); }
+    string prefix="", qname=""; size_t cut=query.find(';');
+    if (cut!=string::npos) { qname=query.substr(0,cut); prefix=qname+"\t"; query=query.substr(cut+1); }
     // split into tokens
     MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),bMath,tokens);
     if (stopwords.size()>0) tokens.removein_dump(stopwords); // remove stopwords
     if (bkeywords) tokens.removenotin_dump(keywords); // remove non-math token if not in keywords
     if (tokens.size()<=0) {cerr<<"empty query"<<endl; return;}
+    //{ ofstream out("queries-processed.txt",std::ios_base::app); out<<qname<<";"; for (int i=0;i<tokens.size();i++) { out<<" "<<tokens[i]; } out<<endl; return; }
     //cerr<<"found "<<tokens.size()<<" tokens"<<endl;
     // stats
     int doccount=docs->size(); float avgDocSize=(double)totaltokens/doccount;
@@ -141,6 +142,20 @@ public:
     dict=new DictionaryTwoLayer(metain,metafn.c_str()); metain.close();
     chrono::high_resolution_clock::time_point e=chrono::high_resolution_clock::now();
     //cerr<<"Input "<<metafn<<" took "<<(double)chrono::duration_cast<chrono::microseconds>(e-s).count()/1000 <<"ms"<<" (docs="<<docs->size()<<",tt="<<totaltokens<<",terms="<<dict->size()<<")"<<endl;
+ /*
+    ofstream out("dictionary-terms.tsv");
+    for (int i=0;i<dict->size();i++) {
+      uint64_t loc=dict->getV(i);
+      ifstream& in=*postfile; in.clear(); in.seekg(loc);
+      string t; in>>t; if (t[0]=='#') continue; // only non-math
+      int blen; in>>blen;
+      { string line; getline(in,line); }
+      byte data[10]; byte* d=data; memset(data,0,10);
+      in.read((char*)data,min(10,blen));
+      int plsize=readVByte(d);
+      out<<plsize<<"\t"<<t<<endl;
+    }
+ //*/
   }
 };
 
