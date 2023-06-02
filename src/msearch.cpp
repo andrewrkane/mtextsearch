@@ -142,17 +142,12 @@ public:
     dict=new DictionaryTwoLayer(metain,metafn.c_str()); metain.close();
     chrono::high_resolution_clock::time_point e=chrono::high_resolution_clock::now();
     //cerr<<"Input "<<metafn<<" took "<<(double)chrono::duration_cast<chrono::microseconds>(e-s).count()/1000 <<"ms"<<" (docs="<<docs->size()<<",tt="<<totaltokens<<",terms="<<dict->size()<<")"<<endl;
- /*
+ /* dump dictionary
     ofstream out("dictionary-terms.tsv");
     for (int i=0;i<dict->size();i++) {
-      uint64_t loc=dict->getV(i);
-      ifstream& in=*postfile; in.clear(); in.seekg(loc);
-      string t; in>>t; if (t[0]=='#') continue; // only non-math
-      int blen; in>>blen;
-      { string line; getline(in,line); }
-      byte data[10]; byte* d=data; memset(data,0,10);
-      in.read((char*)data,min(10,blen));
-      int plsize=readVByte(d);
+      uint64_t loc=dict->getV(i); ifstream& in=*postfile; in.clear(); in.seekg(loc);
+      string t; in>>t; if (t[0]=='#') continue; int blen; in>>blen; { string line; getline(in,line); } //only non-math
+      byte data[10]; byte* d=data; memset(data,0,10); in.read((char*)data,min(10,blen)); int plsize=readVByte(d);
       out<<plsize<<"\t"<<t<<endl;
     }
  //*/
