@@ -28,6 +28,7 @@ class TopkHeap : public vector<Scored> { public:
 struct Posting { int32_t id; int32_t freq; Posting(int id, int freq) { this->id=id; this->freq=freq; } };
 class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; float w;
   PLIter(DocnamesTwoLayer* docs, byte* data, int blen, float weight) : p(0,0), w(weight) { this->data=data; d=data; dend=d+blen; plsize=readVByte(d); int lastid=(plsize>1?readVByte(d):-1); next();
+    if (plsize>docs->size()) {cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<endl; exit(-1);}
   }
   virtual ~PLIter() { delete data; data=d=dend=NULL; }
   inline const Posting& current() { return p; }
@@ -146,8 +147,10 @@ public:
     ofstream out("dictionary-terms.tsv");
     for (int i=0;i<dict->size();i++) {
       uint64_t loc=dict->getV(i); ifstream& in=*postfile; in.clear(); in.seekg(loc);
-      string t; in>>t; if (t[0]=='#') continue; int blen; in>>blen; { string line; getline(in,line); } //only non-math
-      byte data[10]; byte* d=data; memset(data,0,10); in.read((char*)data,min(10,blen)); int plsize=readVByte(d);
+      string t; in>>t; int blen; in>>blen; //only non-math
+      { string line; getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: index extra postings "<<t<<endl; exit(-1);} }
+      byte data[10]; byte* d=data; in.read((char*)data,min(10,blen)); int plsize=readVByte(d);
+      if (plsize>docs->size()) {cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<endl; exit(-1);}
       out<<plsize<<"\t"<<t<<endl;
     }
  //*/
