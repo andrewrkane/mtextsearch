@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <cmath> // for log()
+#include <algorithm>
+#include <chrono>
 #include <sys/stat.h>
 
 #include "mtokenizer.hpp"
