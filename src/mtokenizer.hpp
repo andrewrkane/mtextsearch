@@ -8,7 +8,6 @@
 #include <set>
 
 #include "porterstemmer.hpp"
-using namespace std;
 
 // == tokenizer ======================================================
 // cut strings into tokens and do case-folding, stemming, expansion, etc.
@@ -19,15 +18,15 @@ typedef uint8_t byte; typedef const byte cbyte; typedef const char cchar;
 inline char* tolower(/*modified*/char* s) { for (char* t=s;*t!='\0';t++) { *t=::tolower(*t); } return s; }
 inline char* pstem(/*modified*/char* s, int sl) { int k=::stem(s,0,sl-1); s[k+1]='\0'; return s; } // porter stemmer
 
-inline void loadwords(cchar* wordsfile, /*in/out*/ set<string>& words) {
-  ifstream in(wordsfile); if (!in) {cerr<<"ERROR: missing file "<<wordsfile<<endl;exit(-1);}
+inline void loadwords(cchar* wordsfile, /*in/out*/ std::set<std::string>& words) {
+  std::ifstream in(wordsfile); if (!in) {std::cerr<<"ERROR: missing file "<<wordsfile<<std::endl;exit(-1);}
   char b[1<<10];
-  for (string line; getline(in,line);) {
-    if (line.length()>=(1<<10)) { cerr<<"dropped word "<<line<<endl; continue; }
-    string s=(string)pstem(tolower(strcpy(b,line.c_str())),line.length()); //TODO: remove whitespace? punctuation?
+  for (std::string line; getline(in,line);) {
+    if (line.length()>=(1<<10)) { std::cerr<<"dropped word "<<line<<std::endl; continue; }
+    std::string s=(std::string)pstem(tolower(strcpy(b,line.c_str())),line.length()); //TODO: remove whitespace? punctuation?
     words.insert(s);
   }
-  cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<endl;
+  std::cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<std::endl;
 }
 
 // copy strings into internal storage
@@ -48,28 +47,28 @@ class MTokenizer { protected:
     for (int i=0;i<256;i++) tkmath[i]=tk[i]; tkmath['#']=true; } //tk['<']=true;
 
 public:
-  class TokenList : protected StringList { protected: vector<int> v; //relative to base so realloc works
+  class TokenList : protected StringList { protected: std::vector<int> v; //relative to base so realloc works
     struct charcmp { cchar* d; charcmp(char* base) {d=base;} bool operator()(const int a, const int b) const { return strcmp(d+a, d+b)<0; } };
   public:
     inline void clear() { v.clear(); StringList::clear(); }
     inline void push_back(cbyte* s, int sl) { v.push_back(pstem(tolower(addcopy((cchar*)s,sl)),sl)-d); } // pstem + casefold
     inline void swap_remove(int i) { int last=v.size()-1; if (i<last) v[i]=v[last]; v.pop_back(); }
-    inline void removein(const std::set<string>& words) {
+    inline void removein(const std::set<std::string>& words) {
       int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
     }
-    inline void removein_dump(const std::set<string>& words) { cerr<<"removing: ";
-      int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) { cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); cerr<<endl;
+    inline void removein_dump(const std::set<std::string>& words) { std::cerr<<"removing: ";
+      int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) { std::cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); std::cerr<<std::endl;
     }
-    inline void removenotin(const std::set<string>& words) {
+    inline void removenotin(const std::set<std::string>& words) {
       int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
     }
-    inline void removenotin_dump(const std::set<string>& words) { cerr<<"removing: ";
-      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) { cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); cerr<<endl;
+    inline void removenotin_dump(const std::set<std::string>& words) { std::cerr<<"removing: ";
+      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) { std::cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); std::cerr<<std::endl;
     }
     inline size_t size() const { return v.size(); }
     inline cchar* const operator[](int i) const { return d+v.at(i); } // cannot edit values
     inline void sort() { std::sort(v.begin(), v.end(), charcmp(d)); }
-    inline void dump() { for (int i=0;i<size();i++) { cerr<<(*this)[i]<<" "; } cerr<<endl; }
+    inline void dump() { for (int i=0;i<size();i++) { std::cerr<<(*this)[i]<<" "; } std::cerr<<std::endl; }
   };
   inline MTokenizer() { setupArrays(); }
   // used by minvert

@@ -53,15 +53,15 @@ class DTL : public BaseTwoLayer { protected:
       //remaining
       for (;;) {
         uint pre,suff; readPVByte(d,pre,suff); byte* dsuffend=d+suff;
-        for (i=pre;i<min(pre+suff,maxc);i++) { c[i]=(cchar)*d++; } c[i]=0; v.read(d);
+        for (i=pre;i<std::min(pre+suff,maxc);i++) { c[i]=(cchar)*d++; } c[i]=0; v.read(d);
         if (id==0) return i; else id--; }
     }
   };
-  inline void read(ifstream& in, cchar* fn) { BaseTwoLayer::read(in,fn,DTLNAME); }
+  inline void read(std::ifstream& in, cchar* fn) { BaseTwoLayer::read(in,fn,DTLNAME); }
   SkipEncoder* enc;
 public:
-  inline void write(ofstream& out) { if (enc!=NULL) addEnd(); BaseTwoLayer::write(out,DTLNAME); }
-  DTL(ifstream& in, cchar* fn) { read(in,fn); enc=NULL; } //from write(), cannot add new values
+  inline void write(std::ofstream& out) { if (enc!=NULL) addEnd(); BaseTwoLayer::write(out,DTLNAME); }
+  DTL(std::ifstream& in, cchar* fn) { read(in,fn); enc=NULL; } //from write(), cannot add new values
   DTL() { data.d=new byte[1<<30]; skips.s=new uint[1<<30]; skips.l=dictsize=0; skips.skipsize=16; enc=new SkipEncoder(skips); } //call add(), then addEnd() or write() when done //TODO: make growable+realloc?
   inline void add(cchar* c, cchar* lastc, V v) { enc->encode(c,lastc,v); dictsize++; } //in-order (string&value) except with getV(id)
   inline void addEnd() { enc->encodeEnd(); delete enc; enc=NULL; };

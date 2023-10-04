@@ -11,7 +11,6 @@
 #include <map>
 
 #include "mtokenizer.hpp"
-using namespace std;
 
 /* read in TREC files (optionally via mstrip), invert the text, output mindex file */
 
@@ -35,78 +34,78 @@ public:
       data=(byte*)realloc(data,2*sizeof(MultiH)); SingleH& h=*(SingleH*)data;
       byte* d=data+sizeof(MultiH); writeVByte(d,h.id); writeVByte(d,h.freq); writeVByte(d,id-h.id); writeVByte(d,freq);
       MultiH& m=*(MultiH*)data; m.allocsize=2*sizeof(MultiH); m.endbyte=d-data; m.size=2; m.lastid=id;
-      //if (m.endbyte>=m.allocsize) { cerr<<"ERROR"<<endl; }
+      //if (m.endbyte>=m.allocsize) { std::cerr<<"ERROR"<<std::endl; }
     } else {
       MultiH& mo=*(MultiH*)data;
       if (mo.allocsize<=mo.endbyte+10) { mo.allocsize*=2; data=(byte*)realloc(data,mo.allocsize); }
       MultiH& m=*(MultiH*)data;
       byte* d=data+m.endbyte; writeVByte(d,id-m.lastid); writeVByte(d,freq);
       m.endbyte=d-data; m.size++; m.lastid=id;
-      //if (m.endbyte>=m.allocsize) { cerr<<"ERROR"<<endl; }
+      //if (m.endbyte>=m.allocsize) { std::cerr<<"ERROR"<<std::endl; }
     }
   }
   inline uint getsize() { return (*(uint*)data==1 ? 1 : ((MultiH*)data)->size); }
-  inline void output(ostream& out) { byte oh[20]; // bytelength \n vbytes: (size,[lastid]) (freq,id)+
+  inline void output(std::ostream& out) { byte oh[20]; // bytelength \n vbytes: (size,[lastid]) (freq,id)+
     if (*(uint*)data==1) {
       SingleH& h=*(SingleH*)data;
       byte* o=oh; writeVByte(o,1); writeVByte(o,h.id); writeVByte(o,h.freq); // (size,lastid,id,freq)
-      uint blen=o-oh; out<<blen<<endl; out.write((cchar*)oh,o-oh);
+      uint blen=o-oh; out<<blen<<std::endl; out.write((cchar*)oh,o-oh);
     } else {
       MultiH& m=*(MultiH*)data;
       byte* o=oh; writeVByte(o,m.size); writeVByte(o,m.lastid); // (size,lastid)
       byte* d=data+sizeof(MultiH); int dsize=m.endbyte-sizeof(MultiH); // (delta-id,freq)+
-      uint blen=o-oh+dsize; out<<blen<<endl; out.write((cchar*)oh,o-oh); out.write((cchar*)d,dsize);
+      uint blen=o-oh+dsize; out<<blen<<std::endl; out.write((cchar*)oh,o-oh); out.write((cchar*)d,dsize);
     }
   }
   inline void dump() {
-    if (*(uint*)data==1) { SingleH& h=*(SingleH*)data; cout<<"PL size="<<h.size<<" "<<h.id<<":"<<h.freq<<endl; }
+    if (*(uint*)data==1) { SingleH& h=*(SingleH*)data; std::cout<<"PL size="<<h.size<<" "<<h.id<<":"<<h.freq<<std::endl; }
     else { MultiH& m=*(MultiH*)data; byte* d=data+sizeof(MultiH);
-      cout<<"PL size="<<m.size; for (int i=0;i<m.size;i++) { uint id=readVByte(d); uint freq=readVByte(d); cout<<" "<<id<<":"<<freq; } cout<<endl; } }
+      std::cout<<"PL size="<<m.size; for (int i=0;i<m.size;i++) { uint id=readVByte(d); uint freq=readVByte(d); std::cout<<" "<<id<<":"<<freq; } std::cout<<std::endl; } }
 };
 
 struct charcmp { bool operator()(cchar* a, cchar* b) const { return strcmp(a, b)<0; } };
 
-class Dictionary : protected map<cchar*, PostingsList, charcmp> { protected:
-  char* d; int dsize; int dused; vector<char*> dmore; //store copy of char* values here
+class Dictionary : protected std::map<cchar*, PostingsList, charcmp> { protected:
+  char* d; int dsize; int dused; std::vector<char*> dmore; //store copy of char* values here
  public:
   inline Dictionary() { d=new char[dsize=1<<20]; dused=0; }
   virtual ~Dictionary() { if (d!=NULL) delete d; d=NULL; for (int i=0;i<dmore.size();++i) delete dmore[i]; dmore.clear(); }
   inline int size() { return map::size(); }
   inline void add(cchar* token, int docid, int count) {
-    map<cchar*,PostingsList>::iterator it = find(token);
+    std::map<cchar*,PostingsList>::iterator it = find(token);
     if (it==end()) { // copy token string if not exist in map
       int s=strlen(token)+1; if (dsize<dused+s) { dmore.push_back(d); d=new char[dsize]; dused=0; } //more space
       char* tokencopy=d+dused; strcpy(tokencopy,token); dused+=s;
       (*this)[tokencopy].add(docid,count);
     } else { it->second.add(docid,count); }
   }
-  void output(ostream& out) { // uncompressed
-    cerr<<"Outputting "<<size()<<" postings lists."<<endl;
-    for (iterator it=begin();it!=end();++it) { out<<it->first<<"\t"; it->second.output(out); out<<endl; } }
+  void output(std::ostream& out) { // uncompressed
+    std::cerr<<"Outputting "<<size()<<" postings lists."<<std::endl;
+    for (iterator it=begin();it!=end();++it) { out<<it->first<<"\t"; it->second.output(out); out<<std::endl; } }
 };
 
-class MInvert { public: bool bMath; protected: bool bkeywords; set<string> keywords;
-  vector<string> docnames; vector<int> docsizes; uint64_t totalpostings; int empty;
+class MInvert { public: bool bMath; protected: bool bkeywords; std::set<std::string> keywords;
+  std::vector<std::string> docnames; std::vector<int> docsizes; uint64_t totalpostings; int empty;
   MTokenizer tokenizer; Dictionary dict;
 
   void doIndex(int docid, /*in*/MTokenizer::TokenList& tokens) {
-    //int m=0; for (int i=0;i<tokens.size();++i) { if (strlen(tokens[i])>m) m=strlen(tokens[i]); } cout<<"max="<<m<<endl;
-    //for (int i=0;i<tokens.size();++i) { cout<<tokens[i]<<" "; } cout<<endl;
+    //int m=0; for (int i=0;i<tokens.size();++i) { if (strlen(tokens[i])>m) m=strlen(tokens[i]); } std::cout<<"max="<<m<<endl;
+    //for (int i=0;i<tokens.size();++i) { std::cout<<tokens[i]<<" "; } std::cout<<std::endl;
     // determine frequency of tokens and add to postings lists
     tokens.sort();
     for (int i=0;i<tokens.size();) {
       cchar* token=tokens[i]; int count=1; i++;
       while (i<tokens.size() && strcmp(token,tokens[i])==0) { ++count; ++i; }
-      //cerr<<token<<":"<<count<<endl;
+      //std::cerr<<token<<":"<<count<<std::endl;
       dict.add(token, docid, count);
     }
-    //for (Dictionary::iterator it=dict.begin();it!=dict.end();++it) { cerr<<it->first<<":"<<it->second.size()<<endl; }
+    //for (Dictionary::iterator it=dict.begin();it!=dict.end();++it) { std::cerr<<it->first<<":"<<it->second.size()<<std::endl; }
   }
 
   MTokenizer::TokenList tokens; // reuse between calls, might not be thread safe
-  chrono::high_resolution_clock::time_point sp; //pacifier
-  void doIndex(const string docname, /*in/edited*/ char* data, int size) {
-    if (docname.compare("")==0) { cerr<<"ERROR: missing docname"<<endl; exit(-1); }
+  std::chrono::high_resolution_clock::time_point sp; //pacifier
+  void doIndex(const std::string docname, /*in/edited*/ char* data, int size) {
+    if (docname.compare("")==0) { std::cerr<<"ERROR: missing docname"<<std::endl; exit(-1); }
     // split into tokens
     tokens.clear(); tokenizer.process(data,size,bMath,tokens);
     if (bkeywords) tokens.removenotin(keywords); // remove non-math token if not in keywords
@@ -117,44 +116,44 @@ class MInvert { public: bool bMath; protected: bool bkeywords; set<string> keywo
     // add to index
     doIndex(docid, tokens);
     // pacifier
-    if ((docid+1)%10000==0) { chrono::high_resolution_clock::time_point e=chrono::high_resolution_clock::now(); cerr<<(docid+1) <<" "<<chrono::duration_cast<chrono::milliseconds>(e-sp).count()<<"ms" <<" dictSize="<<dict.size() <<" totalpostings="<<totalpostings<<endl; sp=e; }
+    if ((docid+1)%10000==0) { std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now(); std::cerr<<(docid+1) <<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(e-sp).count()<<"ms" <<" dictSize="<<dict.size() <<" totalpostings="<<totalpostings<<std::endl; sp=e; }
   }
 
-  void doIndexTREC(istream& in, cchar* fn) {
+  void doIndexTREC(std::istream& in, cchar* fn) {
     bool bwarning=false;
-    sp=chrono::high_resolution_clock::now();
+    sp=std::chrono::high_resolution_clock::now();
     uint64_t base=0; int s,e,dsize=1<<20; char* d=(char*)malloc(dsize+1); d[dsize]='\0'; //null-at-end
-    in.read(d,4); s=0; e=in.gcount(); if (e<=0) {cerr<<"ERROR: Empty "<<fn<<endl; exit(-1);}
-    if (e<4||memcmp(d,"<DOC>",4)!=0) {cerr<<"ERROR: format "<<fn<<" found "<<d<<endl; exit(-1);}
+    in.read(d,4); s=0; e=in.gcount(); if (e<=0) {std::cerr<<"ERROR: Empty "<<fn<<std::endl; exit(-1);}
+    if (e<4||memcmp(d,"<DOC>",4)!=0) {std::cerr<<"ERROR: format "<<fn<<" found "<<d<<std::endl; exit(-1);}
   READMORE:
-    //cerr<<"READMORE"<<" s="<<s<<" e="<<e<<endl; //cerr.write(d,10); cerr<<endl;
+    //std::cerr<<"READMORE"<<" s="<<s<<" e="<<e<<std::endl; //cerr.write(d,10); cerr<<std::endl;
     if (s>0) { base+=s; if (e>s) { memcpy(d,d+s,e-s); } e-=s; s=0; } //copy to front
-    //cerr<<"- READMORE"<<" s="<<s<<" e="<<e<<endl;
-    if (e==dsize) { dsize*=2; d=(char*)realloc(d,dsize+1); d[dsize]='\0'; if (dsize>1<<25) {cerr<<"ERROR: alloc too big, dumping buffer to stdout"<<endl; cout<<d; exit(-1);} } //grow //null-at-end
+    //std::cerr<<"- READMORE"<<" s="<<s<<" e="<<e<<std::endl;
+    if (e==dsize) { dsize*=2; d=(char*)realloc(d,dsize+1); d[dsize]='\0'; if (dsize>1<<25) {std::cerr<<"ERROR: alloc too big, dumping buffer to stdout"<<std::endl; std::cout<<d; exit(-1);} } //grow //null-at-end
     in.read(d+e,dsize-e); int r=in.gcount(); e+=r;
-    if (e>dsize) {cerr<<"ERROR: index read buffer overflow "<<e<<" "<<dsize<<endl; exit(-1);}
+    if (e>dsize) {std::cerr<<"ERROR: index read buffer overflow "<<e<<" "<<dsize<<std::endl; exit(-1);}
     d[e]='\0'; // null terminate
     for (char* n=d;n<d+e;++n) { if (*n=='\0') *n=' '; } //drop 0-bytes
     if (e==0) { if (d!=NULL) free(d); d=NULL; return; } //cleanup and exit
-    if (r==0) { cerr<<"WARNING: invalid final DOC "<<(e-s)<<" "<<string(d+s,e-s)<<endl; return;}
+    if (r==0) { std::cerr<<"WARNING: invalid final DOC "<<(e-s)<<" "<<std::string(d+s,e-s)<<std::endl; return;}
     //process
     for (;;) {
       //find DOC & DOCNO & DOCHDR
       for (;s<e && isspace(d[s]); s++) {} //skip whitespace
       char* sdoc=strstr(d+s,"<DOC>"); if (sdoc==NULL) goto READMORE;
-      if (s!=sdoc-d) {cerr<<"WARNING: non-whitespace between DOCs "<<(sdoc-d)-s<<" "<<string(d+s,(sdoc-d)-s)<<endl; bwarning=true;}
+      if (s!=sdoc-d) {std::cerr<<"WARNING: non-whitespace between DOCs "<<(sdoc-d)-s<<" "<<std::string(d+s,(sdoc-d)-s)<<std::endl; bwarning=true;}
       char* edoc=strstr(sdoc+5,"</DOC>"); if (edoc==NULL) goto READMORE;
-      char* sdocno=strstr(sdoc+5,"<DOCNO>"); if (sdocno==NULL||sdocno>=edoc) {cerr<<"ERROR: DOCNO missing"<<endl; exit(-1);}
-      char* edocno=strstr(sdocno+7,"</DOCNO>"); if (edocno==NULL||sdocno>=edoc) {cerr<<"ERROR: /DOCNO missing"<<endl; exit(-1);}
+      char* sdocno=strstr(sdoc+5,"<DOCNO>"); if (sdocno==NULL||sdocno>=edoc) {std::cerr<<"ERROR: DOCNO missing"<<std::endl; exit(-1);}
+      char* edocno=strstr(sdocno+7,"</DOCNO>"); if (edocno==NULL||sdocno>=edoc) {std::cerr<<"ERROR: /DOCNO missing"<<std::endl; exit(-1);}
       char* sdochdr=strstr(edocno+8,"<DOCHDR>");
       char* edochdr=strstr(edocno+8,"</DOCHDR>");
       char* content=(edochdr==NULL?edocno+8:edochdr+9); // content = </DOCHDR>...</DOC> or </DOCNO>...</DOC>
       //char* content=sdochdr+9; // content = <DOCHDR>...</DOC>
       char* docname=sdocno+7;
       //split data
-      if (bwarning) { cerr<<"next doc "<<string(docname,edocno-docname)<<endl; bwarning=false; }
-      //cerr<<"docname="<<string(docname,edocno-docname)<<" contentsize="<<edoc-content<<" content(300)="<<string(content,300)<<endl;
-      doIndex(string(docname,edocno-docname),content,edoc-content);
+      if (bwarning) { std::cerr<<"next doc "<<std::string(docname,edocno-docname)<<std::endl; bwarning=false; }
+      //std::cerr<<"docname="<<std::string(docname,edocno-docname)<<" contentsize="<<edoc-content<<" content(300)="<<std::string(content,300)<<std::endl;
+      doIndex(std::string(docname,edocno-docname),content,edoc-content);
       s=edoc-d+6;
     }
   }
@@ -163,19 +162,19 @@ public:
   MInvert() { bMath=false; bkeywords=false; totalpostings=0L; empty=0; }
   void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords); }
 
-  void input(istream& in, cchar* fn) { doIndexTREC(in,fn); }
+  void input(std::istream& in, cchar* fn) { doIndexTREC(in,fn); }
 
-  void output(ostream& out) {
-    out<<(bMath?"math":"text")<<".mindex.1"<<endl;
-    int s=docnames.size(); cerr<<"Output "<<s<<" docs"<<endl;
-    out<<s<<endl; for (int i=0;i<s;i++) { out<<docsizes[i]<<"\t"<<docnames[i]<<endl; } out<<endl;
+  void output(std::ostream& out) {
+    out<<(bMath?"math":"text")<<".mindex.1"<<std::endl;
+    int s=docnames.size(); std::cerr<<"Output "<<s<<" docs"<<std::endl;
+    out<<s<<std::endl; for (int i=0;i<s;i++) { out<<docsizes[i]<<"\t"<<docnames[i]<<std::endl; } out<<std::endl;
     dict.output(out);
   }
 };
 
 static void usage() {
-  cerr<<"Usage: ./minvert.exe [-T keywords.txt] [-M] datafile ... > out.mindex"<<endl;
-  cerr<<"       ./minvert.exe [-T keywords.txt] [-M] < datafile > out.mindex"<<endl; exit(-1); }
+  std::cerr<<"Usage: ./minvert.exe [-T keywords.txt] [-M] datafile ... > out.mindex"<<std::endl;
+  std::cerr<<"       ./minvert.exe [-T keywords.txt] [-M] < datafile > out.mindex"<<std::endl; exit(-1); }
 
 int main(int argc, char *argv[]) {
   MInvert ms; int s=1;
@@ -184,7 +183,7 @@ int main(int argc, char *argv[]) {
     else if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
     else break;
   }
-  if (argc-s==0) { ms.input(cin,"stdin"); } else if (argc-s>0) { for (;s<argc;s++) { ifstream in(argv[s]); if (!in) usage(); ms.input(in, argv[s]); } } else usage(); // input
-  ms.output(cout); // output
+  if (argc-s==0) { ms.input(std::cin,"stdin"); } else if (argc-s>0) { for (;s<argc;s++) { std::ifstream in(argv[s]); if (!in) usage(); ms.input(in, argv[s]); } } else usage(); // input
+  ms.output(std::cout); // output
   return 0;
 }

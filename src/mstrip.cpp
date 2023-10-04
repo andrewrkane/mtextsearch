@@ -7,7 +7,6 @@
 #include <string>
 #include <sstream>
 #include <stdio.h>
-using namespace std;
 
 /* read in TREC files, strip html from DOC and output in TREC format */
 
@@ -61,43 +60,43 @@ int main(int argc, char *argv[]) {
   setupPR();
   // process all input without DOC,DOCNO,DOCHDR tags
   if (argc==2 && strcmp("-x",argv[1])==0) {
-    ostringstream buffer; buffer<<cin.rdbuf(); // read all
-    string data = buffer.str(); process(stdout,data.c_str(),data.length()); cout<<endl; // process
+    std::ostringstream buffer; buffer<<std::cin.rdbuf(); // read all
+    std::string data = buffer.str(); process(stdout,data.c_str(),data.length()); std::cout<<std::endl; // process
     return 0;
   }
   if (argc==2 && strcmp("-q",argv[1])==0) {
-    for (bool bfirst=true;;) { string line; getline(cin, line); if (!cin) break;
+    for (bool bfirst=true;;) { std::string line; getline(std::cin, line); if (!std::cin) break;
       int tstart=line.rfind("Query topic=\"");
       if (tstart>=0) { tstart+=13;
         int tend=line.find("\"",tstart);
-        if (tend>=0) { if (bfirst) bfirst=false; else cout<<endl; cout<<line.substr(tstart,tend-tstart)<<";"; continue; }
+        if (tend>=0) { if (bfirst) bfirst=false; else std::cout<<std::endl; std::cout<<line.substr(tstart,tend-tstart)<<";"; continue; }
       }
       process(stdout,line.c_str(),line.length());
-    } cout<<endl;
+    } std::cout<<std::endl;
     return 0;
   }
   // process with tags
-  if (argc!=1) { cerr<<"Usage: ./mstrip.exe [-x|-q] < input > output"<<endl<<"   where -x = no DOC tags, -q = math query file"; return -1; }
+  if (argc!=1) { std::cerr<<"Usage: ./mstrip.exe [-x|-q] < input > output"<<std::endl<<"   where -x = no DOC tags, -q = math query file"; return -1; }
   // data from stdin
   int curr=0, size=1<<20; char* buff=(char*)malloc(size);
   NEXTDOC:
-  string line;
+  std::string line;
   int docHDRLine=0;
-  for (;;) { getline(cin, line); if (!cin) goto CLEANUPBUFF;
+  for (;;) { getline(std::cin, line); if (!std::cin) goto CLEANUPBUFF;
     if (docHDRLine<=0) {
-      if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { cout<<line<<endl; }
+      if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { std::cout<<line<<std::endl; }
       else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; }
       else { goto PROCESSLINE; } // no DOCHDR
     } else {
-      if (line.compare("</DOCHDR>")==0) { cout<<line<<endl; break; }
-      else if (docHDRLine<=2) cout<<line<<endl; // pass through non-processed lines, but only first of DocHDR
+      if (line.compare("</DOCHDR>")==0) { std::cout<<line<<std::endl; break; }
+      else if (docHDRLine<=2) std::cout<<line<<std::endl; // pass through non-processed lines, but only first of DocHDR
     }
   }
-  for (;;) { getline(cin, line); if (!cin) goto CLEANUPBUFF;
+  for (;;) { getline(std::cin, line); if (!std::cin) goto CLEANUPBUFF;
     PROCESSLINE:
     if (line.compare("</DOC>")==0) {
-      process(stdout,buff,curr); cout<<endl; curr=0; // process accumulated at end of doc
-      cout<<line<<endl; // pass through non-processed lines
+      process(stdout,buff,curr); std::cout<<std::endl; curr=0; // process accumulated at end of doc
+      std::cout<<line<<std::endl; // pass through non-processed lines
       goto NEXTDOC;
     } else {
       int len=line.length();

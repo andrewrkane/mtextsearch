@@ -6,7 +6,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-using namespace std;
 
 // == ListTwoLayer, DocnamesTwoLayer, DictionaryTwoLayer ======================================================
 // array of pointers into single data block of groups, then search in array to get group, then values.
@@ -16,7 +15,7 @@ using namespace std;
 typedef uint8_t byte; typedef const byte cbyte; typedef const char cchar; typedef uint32_t uint;
 
 inline static int strcmp(cbyte* a, cbyte* b) { return ::strcmp((char*)a,(char*)b); }
-inline static void writeBytes(byte*& d, cbyte* b, uint l) { memcpy(d,b,l); d+=l; }
+inline static void writeBytes(byte*& d, cbyte* b, uint l) { ::memcpy(d,b,l); d+=l; }
 inline static void writeVByte(byte*& d, uint64_t v) { byte t[10]; int i=0; for (;;i++) { t[i]=v&0x7F;v>>=7; if(v==0)break; } for (;i>0;i--) {*d++=t[i]|0x80;} *d++=t[i]; }
 inline static void writePVByte(byte*& d, uint a, uint b) {
   if (a<15) { if (b<15) { *d++=(a&0xF)<<4|(b&0xF); } else { *d++=(a&0xF)<<4|0xF; writeVByte(d,b-15); } }
@@ -33,18 +32,18 @@ class BaseTwoLayer { protected:
   }; //index values into data array, l=lastskip of data block
   //stored-data
   Data data; Skips skips; uint dictsize;
-  inline void write(ofstream& out, cchar* type) { out<<type<<endl;
-    uint slen=skips.l+1, dlen=skips.s[skips.l]+1; out<<slen<<"\t"<<dlen<<"\t"<<skips.skipsize<<"\t"<<dictsize<<endl;
-    out.write((cchar*)skips.s,slen*sizeof(uint)); out<<endl;
-    out.write((cchar*)data.d,dlen); out<<endl; }
-  inline void read(ifstream& in, cchar* fn, cchar* type) { string line;
-    getline(in,line); if (!in) {cerr<<"ERROR: Empty input file "<<fn<<endl; exit(-1);}
-    if (line.compare(type)!=0) {cerr<<"ERROR: Unknown format "<<fn<<" "<<type<<" "<<line<<endl; exit(-1);}
-    uint slen,dlen; in>>slen; in>>dlen; in>>skips.skipsize; in>>dictsize; getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: dict "<<fn<<" info "<<line<<endl; exit(-1);}
+  inline void write(std::ofstream& out, cchar* type) { out<<type<<std::endl;
+    uint slen=skips.l+1, dlen=skips.s[skips.l]+1; out<<slen<<"\t"<<dlen<<"\t"<<skips.skipsize<<"\t"<<dictsize<<std::endl;
+    out.write((cchar*)skips.s,slen*sizeof(uint)); out<<std::endl;
+    out.write((cchar*)data.d,dlen); out<<std::endl; }
+  inline void read(std::ifstream& in, cchar* fn, cchar* type) { std::string line;
+    getline(in,line); if (!in) {std::cerr<<"ERROR: Empty input file "<<fn<<std::endl; exit(-1);}
+    if (line.compare(type)!=0) {std::cerr<<"ERROR: Unknown format "<<fn<<" "<<type<<" "<<line<<std::endl; exit(-1);}
+    uint slen,dlen; in>>slen; in>>dlen; in>>skips.skipsize; in>>dictsize; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: dict "<<fn<<" info "<<line<<std::endl; exit(-1);}
     skips.l=slen-1; skips.s=new uint[slen]; in.read((char*)skips.s,slen*sizeof(uint));
-    getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: dict "<<fn<<" skips "<<line<<endl; exit(-1);}
+    getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: dict "<<fn<<" skips "<<line<<std::endl; exit(-1);}
     data.d=new byte[dlen]; in.read((char*)data.d,dlen);
-    getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: dict "<<fn<<" data "<<line<<endl; exit(-1);}
+    getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: dict "<<fn<<" data "<<line<<std::endl; exit(-1);}
   }
   struct KEncoder { byte* d; bool first;
     inline KEncoder(Data& data) { d=data.d; newGroup(); }
