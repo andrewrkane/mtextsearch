@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <sstream>
 #include <stdio.h>
 
@@ -59,12 +60,12 @@ void process(FILE* out, /*in*/ const char* data, int size) {
 int main(int argc, char *argv[]) {
   setupPR();
   // process all input without DOC,DOCNO,DOCHDR tags
-  if (argc==2 && strcmp("-x",argv[1])==0) {
+  if (argc==2 && strstr(argv[1],"-x")==argv[1]) {
     std::ostringstream buffer; buffer<<std::cin.rdbuf(); // read all
     std::string data = buffer.str(); process(stdout,data.c_str(),data.length()); std::cout<<std::endl; // process
     return 0;
   }
-  if (argc==2 && strcmp("-q",argv[1])==0) {
+  if (argc==2 && strstr(argv[1],"-q")==argv[1]) {
     for (bool bfirst=true;;) { std::string line; getline(std::cin, line); if (!std::cin) break;
       int tstart=line.rfind("Query topic=\"");
       if (tstart>=0) { tstart+=13;
