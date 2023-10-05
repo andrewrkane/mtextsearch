@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstring>
 
 // == ListTwoLayer, DocnamesTwoLayer, DictionaryTwoLayer ======================================================
 // array of pointers into single data block of groups, then search in array to get group, then values.
