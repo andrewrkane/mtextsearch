@@ -144,35 +144,38 @@ public:
     dict=new DictionaryTwoLayer(metain,metafn.c_str()); metain.close();
     std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now();
     //std::cerr<<"Input "<<metafn<<" took "<<(double)std::chrono::duration_cast<std::chrono::microseconds>(e-s).count()/1000 <<"ms"<<" (docs="<<docs->size()<<",tt="<<totaltokens<<",terms="<<dict->size()<<")"<<std::endl;
- /* dump dictionary
-    ofstream out("dictionary-terms.tsv");
+  }
+
+  void dumpDictionary() {
+    std::ostream& out=std::cout;
     for (int i=0;i<dict->size();i++) {
       uint64_t loc=dict->getV(i); std::ifstream& in=*postfile; in.clear(); in.seekg(loc);
       std::string t; in>>t; int blen; in>>blen; //only non-math
-      { std::string line; getline(in,line); if (line.compare("")!=0) {cerr<<"ERROR: index extra postings "<<t<<std::endl; exit(-1);} }
-      byte data[10]; byte* d=data; in.read((char*)data,min(10,blen)); int plsize=readVByte(d);
+      { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings "<<t<<std::endl; exit(-1);} }
+      byte data[10]; byte* d=data; in.read((char*)data,std::min(10,blen)); int plsize=readVByte(d);
       if (plsize>docs->size()) {std::cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<std::endl; exit(-1);}
       out<<plsize<<"\t"<<t<<std::endl;
     }
- //*/
   }
 };
 
-static void usage() {std::cerr<<"Usage: ./msearch.exe [-T keywords.txt] [-S stopwords.txt] [-k#] [-M] [-a#.#] data.mindex < query.txt"<<std::endl; exit(-1);}
+static void usage() {std::cerr<<"Usage: ./msearch.exe [-T keywords.txt] [-S stopwords.txt] [-k#] [-M] [-a#.#] [-dd] data.mindex < query.txt"<<std::endl; exit(-1);}
 
 int main(int argc, char *argv[]) {
   if (argc<2) usage();
-  MSearch ms; int s=1;
+  MSearch ms; int s=1; bool dd=false;
   for (;;) {
     if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); ms.setT(argv[s+1]); s+=2; }
     else if (s<argc && strstr(argv[s],"-S")==argv[s]) { if (s+1>=argc) usage(); ms.setS(argv[s+1]); s+=2; }
     else if (s<argc && strstr(argv[s],"-k")==argv[s]) { ms.setk(std::stof(argv[s]+2)); s++; }
     else if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
     else if (s<argc && strstr(argv[s],"-a")==argv[s]) { ms.setAlpha(std::stof(argv[s]+2)); s++; }
+    else if (s<argc && strstr(argv[s],"-dd")==argv[s]) { dd=true; s++; }
     else if (argc-s!=1) usage();
     else break;
   }
   ms.input(argv[s]); // from mindex
+  if (dd) { ms.dumpDictionary(); return 0; }
   // query from stdin (until end or empty line)
   std::cerr<<"Enter queries:"<<std::endl;
   for (;;) { std::string line; getline(std::cin, line); if (!std::cin||line.compare("")==0) break; ms.query(line); }
