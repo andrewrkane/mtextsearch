@@ -52,7 +52,7 @@ class DTL : public BaseTwoLayer { protected:
       if (id==0) return i; else id--;
       //remaining
       for (;;) {
-        uint pre,suff; readPVByte(d,pre,suff); byte* dsuffend=d+suff;
+        uint pre,suff; readPVByte(d,pre,suff); //byte* dsuffend=d+suff;
         for (i=pre;i<std::min(pre+suff,maxc);i++) { c[i]=(cchar)*d++; } c[i]=0; v.read(d);
         if (id==0) return i; else id--; }
     }

@@ -57,7 +57,7 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; std:
       byte* data=new byte[blen];
       in.read((char*)data,blen);
       { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings "<<token<<std::endl; exit(-1);} }
-      float weight=count/(count+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0-alpha); }
+      float weight=count/(count+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0f-alpha); }
       PLIter* pli=new PLIter(docs,data,blen,weight); listIters.push_back(pli); //iterator owns data array
       //std::cerr<<"Found \'"<<token<<"\' count="<<count<<" plsize="<<pli->plsize<<" bytelength="<<blen<<std::endl;
     }
@@ -69,7 +69,7 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; std:
     TopkHeap h(k);
     // precompute IDF for BM25
     for (int i=0;i<count;i++) { PLIter& pli=*listIters[i];
-      pli.w*=log(1.0+((double)doccount-pli.plsize+0.5)/(pli.plsize+0.5));
+      pli.w*=log(1.0f+((float)doccount-pli.plsize+0.5f)/(pli.plsize+0.5f));
       //std::cerr<<"idf*weight="<<pli.w<<std::endl;
     }
     while (base<count) {
@@ -80,7 +80,7 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; std:
       for (int i=base; i<count; i++) {
         PLIter& pli=*listIters[i]; const Posting& p=pli.current(); if (i==base) docid=p.id; else if (p.id!=docid) break;
         // BM25 see https://en.wikipedia.org/wiki/Okapi_BM25
-        float tf=p.freq*(1.2+1.0) / (p.freq + 1.2*(1.0 - 0.75 + 0.75*docs->getV(docid)/avgDocSize));
+        float tf=p.freq*(1.2f+1.0f) / (p.freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
         //std::cerr<<"p.freq="<<p.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
         //std::cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<std::endl;
         score += tf*pli.w;
@@ -95,7 +95,7 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; std:
   }
 
 public:
-  MSearch() { bMath=false; alpha=0.18; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; bkeywords=false; k=10; }
+  MSearch() { bMath=false; alpha=0.18f; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; bkeywords=false; k=10; }
   virtual ~MSearch() { if (docs!=NULL) delete docs; docs=NULL;
     if (dict!=NULL) delete dict; dict=NULL;
     if (postfile!=NULL) postfile->close(); postfile=NULL; }
@@ -129,7 +129,7 @@ public:
   }
 
   void input(const char* fn) {
-    std::chrono::high_resolution_clock::time_point s=std::chrono::high_resolution_clock::now();
+    //std::chrono::high_resolution_clock::time_point s=std::chrono::high_resolution_clock::now();
     // postfile
     if (postfile!=NULL) {std::cerr<<"ERROR: only supporting one index file"<<std::endl; exit(-1);}
     postfile=new std::ifstream(fn); std::string line; //std::cerr<<"Input "<<fn<<std::endl;
@@ -142,7 +142,7 @@ public:
     getline(metain,line); if (line.compare("")!=0) {std::cerr<<"ERROR: meta "<<metafn<<" extra size match info "<<line<<std::endl; exit(-1);}
     docs=new DocnamesTwoLayer(metain,metafn.c_str()); metain>>totaltokens; getline(metain,line); if (line.compare("")!=0) {std::cerr<<"ERROR: meta "<<metafn<<" extra totaltokens "<<line<<std::endl; exit(-1);}
     dict=new DictionaryTwoLayer(metain,metafn.c_str()); metain.close();
-    std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now();
+    //std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now();
     //std::cerr<<"Input "<<metafn<<" took "<<(double)std::chrono::duration_cast<std::chrono::microseconds>(e-s).count()/1000 <<"ms"<<" (docs="<<docs->size()<<",tt="<<totaltokens<<",terms="<<dict->size()<<")"<<std::endl;
   }
 
@@ -159,7 +159,7 @@ public:
   }
 };
 
-static void usage() {std::cerr<<"Usage: ./msearch.exe [-T keywords.txt] [-S stopwords.txt] [-k#] [-M] [-a#.#] [-dd] data.mindex < query.txt"<<std::endl; exit(-1);}
+static void usage() {std::cerr<<"Usage: ./msearch.exe [-T keywords.txt] [-S stopwords.txt] [-k#] [-M] [-a#.#] [-dd] data.mindex < query.txt"<<std::endl<<"  where -k number to return, -M math, -a alpha math/text balance, -dd dump dictionary"<<std::endl; exit(-1);}
 
 int main(int argc, char *argv[]) {
   if (argc<2) usage();
