@@ -73,8 +73,26 @@ class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; std:
       //std::cerr<<"idf*weight="<<pli.w<<std::endl;
     }
     while (base<count) {
+SORT_ITERS:
       sort(listIters.begin()+base, listIters.end(), PLIComp);
       //for (int i=base;i<count;i++) {std::cerr<<listIters[i].second[listIters[i].first].first<<" ";} cerr<<std::endl;
+      // pivot from threshold
+      float T=h.front().score;
+      int Pi=base; for (float Tmax=0.0f; Pi<count; Pi++) {Tmax+=listIters[Pi]->w*(1.2f+1.0f); if (Tmax>T) break; }
+      if (Pi>=count) break; //done
+      // advance to pivot
+      if (Pi!=base) {
+        int Pid=listIters[Pi]->current().id;
+        if (listIters[base]->current().id != Pid) {
+          for (int i=base; i<Pi; i++) {
+            PLIter& pli=*listIters[i];
+            while (pli.current().id<Pid) {
+              if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; }
+            } //skip
+          }
+          goto SORT_ITERS;
+        }
+      }
       // score iterators at docid
       int docid; float score=0;
       for (int i=base; i<count; i++) {
