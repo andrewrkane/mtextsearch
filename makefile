@@ -1,6 +1,6 @@
 SHELL:=/bin/bash
 
-exe=msearch.exe mmerge.exe minvert.exe mstrip.exe mencode.exe
+exe=msearch.exe mmerge.exe minvert.exe mstrip.exe mencode.exe mtokenize.exe
 
 all: $(exe)
 
