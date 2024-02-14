@@ -28,8 +28,7 @@ void setupPR() {
 
 #define REMAIN_8lower(s) i+8<size && tolower(data[i+1])==s[0] && tolower(data[i+2])==s[1] && tolower(data[i+3])==s[2] && tolower(data[i+4])==s[3] && tolower(data[i+5])==s[4] && tolower(data[i+6])==s[5] && tolower(data[i+7])==s[6] && tolower(data[i+8])==s[7]
 
-void process(FILE* out, /*in*/ const char* data, int size) {
-  char whitespace=0;
+void process(FILE* out, /*in*/ const char* data, int size, char whitespace=0) {
   for (int i=0;i<size;i++) {
     unsigned char c=data[i];
     if (!pr[c]) { if (whitespace!=0) { putc(whitespace,out); whitespace=0; } putc(c,out); continue; }
@@ -72,7 +71,7 @@ int main(int argc, char *argv[]) {
         int tend=line.find("\"",tstart);
         if (tend>=0) { if (bfirst) bfirst=false; else std::cout<<std::endl; std::cout<<line.substr(tstart,tend-tstart)<<";"; continue; }
       }
-      process(stdout,line.c_str(),line.length());
+      process(stdout,line.c_str(),line.length(),(tstart>=0?0:' '));
     } std::cout<<std::endl;
     return 0;
   }
