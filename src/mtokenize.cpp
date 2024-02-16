@@ -18,26 +18,26 @@ typedef uint8_t byte; typedef const byte cbyte; typedef const char cchar;
 inline char* tolower(/*modified*/char* s) { for (char* t=s;*t!='\0';t++) { *t=::tolower(*t); } return s; }
 inline char* pstem(/*modified*/char* s, int sl) { int k=::stem(s,0,sl-1); s[k+1]='\0'; return s; } // porter stemmer
 
-class MTokenize { protected:
+class MTokenize { public: bool bMath, bQuery; protected:
   bool me[256], tk[256], tkmath[256]; inline void set(bool* t, int s, int e, bool v=true) { for (int i=s;i<=e;i++) t[i]=v; }
   void setupArrays() { set(me,0,255,false); me[' ']=me['\t']=me['\r']=me['\n']=me['#']=true;
     set(tk,0,127,false); set(tk,128,255); set(tk,'a','z'); set(tk,'A','Z'); set(tk,'0','9');
     for (int i=0;i<256;i++) tkmath[i]=tk[i]; tkmath['#']=true; } //tk['<']=true;
 
 public:
-  inline MTokenize() { setupArrays(); }
+  inline MTokenize() : bMath(false), bQuery(false) { setupArrays(); }
 
-  void process(std::string& line, bool bMath) {
+  void process(std::string& line) {
     char* data = strdup(line.c_str()); int size=line.size(); // new owned array TODO: read to editable buffer directly?
     byte* d=(byte*)data; byte* dend=d+size;
-    bool f=true;
+    cchar* f="";
     if (bMath) {
       for(;d<dend;d++) {
         if (tkmath[*d]) { byte* s=d++;
           if (*s=='#') { // math tuples
-            for (;;d++) { if (d>=dend || me[*d]) { if (*d=='#') { std::cout<<(f?"":" "); f=false; std::cout.write((char*)s,d-s+1); } else { d=s; } break; } }
+            for (;;d++) { if (d>=dend || me[*d]) { if (*d=='#') { std::cout<<f; f=" "; std::cout.write((char*)s,d-s+1); } else { d=s; } break; } }
           } else { // non-math doesn't start with #
-            for(;;d++) { if (d>=dend || !tkmath[*d]) { *d=0; std::cout<<(f?"":" ")<<pstem(tolower((char*)s),d-s); f=false; break; } }
+            for(;;d++) { if (d>=dend || !tkmath[*d]) { *d=0; std::cout<<f<<pstem(tolower((char*)s),d-s); f=" "; break; } }
           }
         }
       }
@@ -45,7 +45,7 @@ public:
       for(;d<dend;d++) {
         if (tk[*d]) { cbyte* s=d++;
           //if (d<dend && *(d-1)=='<' && *d=='/') d++; // end tags
-          for(;;d++) { if (d>=dend || !tk[*d]) { *d=0; std::cout<<(f?"":" ")<<pstem(tolower((char*)s),d-s); f=false; break; } }
+          for(;;d++) { if (d>=dend || !tk[*d]) { *d=0; std::cout<<f<<pstem(tolower((char*)s),d-s); f=" "; break; } }
         }
       }
     }
@@ -54,11 +54,15 @@ public:
     delete data; data=NULL; // cleanup
   }
 
-  int process(bool bMath) {
+  int process() {
     std::istream& in = std::cin;
     std::string line; getline(in,line); if (!in) return 0;
-    if (line.compare("<DOC>")!=0) {
-      for (;;getline(in,line)) { if (!in) return 0; process(line,bMath); }
+    if (bQuery) {
+      for (;;getline(in,line)) { if (!in) return 0;
+        int s=line.find(';'), t=line.find(' '); if (s>=0 && (t<0 || s<t)) { std::cout<<line.substr(0,s+1)<<" "; line=line.substr(s+1); }
+        process(line); }
+    } else if (line.compare("<DOC>")!=0) {
+      for (;;getline(in,line)) { if (!in) return 0; process(line); }
     } else {
       NEXTDOC:
       int docHDRLine=0;
@@ -75,19 +79,23 @@ public:
       for (;;getline(in,line)) { if (!in) return 0;
         PROCESSLINE:
         if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; goto NEXTDOC; }
-        else { process(line,bMath); }
+        else { process(line); }
       }
     }
   }
 };
 
-static void usage() {std::cerr<<"Usage: ./mtokenize.exe [-M] < in > out"<<std::endl; exit(-1);}
+static void usage() {std::cerr<<"Usage: ./mtokenize.exe [-M] [-q] < in > out"<<std::endl<<"  where -M math, -q query file"; exit(-1);}
 
 int main(int argc, char *argv[]) {
   MTokenize tokenize; int s=1;
-  bool bMath=false;
-  if (s<argc && strstr(argv[s],"-M")==argv[s]) { bMath=true; s++; }
-  if (argc-s!=0) usage();
+
+  for (;;) {
+    if (s<argc && strstr(argv[s],"-M")==argv[s]) { tokenize.bMath=true; s++; }
+    else if (s<argc && strstr(argv[s],"-q")==argv[s]) { tokenize.bQuery=true; s++; }
+    else if (argc-s!=0) usage();
+    else break;
+  }
   
-  return tokenize.process(bMath);
+  return tokenize.process();
 }
