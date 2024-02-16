@@ -20,7 +20,7 @@ inline char* pstem(/*modified*/char* s, int sl) { int k=::stem(s,0,sl-1); s[k+1]
 
 class MTokenize { public: bool bMath, bQuery; protected:
   bool me[256], tk[256], tkmath[256]; inline void set(bool* t, int s, int e, bool v=true) { for (int i=s;i<=e;i++) t[i]=v; }
-  void setupArrays() { set(me,0,255,false); me[' ']=me['\t']=me['\r']=me['\n']=me['#']=true;
+  void setupArrays() { set(me,0,255,false); me[0]=me[' ']=me['\t']=me['\r']=me['\n']=me['#']=true;
     set(tk,0,127,false); set(tk,128,255); set(tk,'a','z'); set(tk,'A','Z'); set(tk,'0','9');
     for (int i=0;i<256;i++) tkmath[i]=tk[i]; tkmath['#']=true; } //tk['<']=true;
 
@@ -34,10 +34,15 @@ public:
     if (bMath) {
       for(;d<dend;d++) {
         if (tkmath[*d]) { byte* s=d++;
-          if (*s=='#') { // math tuples
-            for (;;d++) { if (d>=dend || me[*d]) { if (*d=='#') { std::cout<<f; f=" "; std::cout.write((char*)s,d-s+1); } else { d=s; } break; } }
+          if (*s=='#') { // try to find math tuples
+            for (;;d++) {
+              if (d>=dend || me[*d]) {
+                if (d>s+3 && ((s[1]=='{' && *(d-1)=='}') || (s[1]=='(') && *(d-1)==')') && *d=='#' && d[1]==' ') { d[1]=0; std::cout<<f; f=" "; std::cout<<"'"<<(char*)s<<"'"; break; }
+                else { d=s; break;}
+              }
+            }
           } else { // non-math doesn't start with #
-            for(;;d++) { if (d>=dend || !tkmath[*d]) { *d=0; std::cout<<f<<pstem(tolower((char*)s),d-s); f=" "; break; } }
+            for(;;d++) { if (d>=dend || !tk[*d]) { *d=0; std::cout<<f<<pstem(tolower((char*)s),d-s); f=" "; break; } }
           }
         }
       }
