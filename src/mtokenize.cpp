@@ -37,7 +37,7 @@ public:
           if (*s=='#') { // try to find math tuples
             for (;;d++) {
               if (d>=dend || me[*d]) {
-                if (d>s+3 && ((s[1]=='{' && *(d-1)=='}') || (s[1]=='(') && *(d-1)==')') && *d=='#' && d[1]==' ') { d[1]=0; std::cout<<f; f=" "; std::cout<<"'"<<(char*)s<<"'"; break; }
+                if (d>s+3 && ((s[1]=='{' && *(d-1)=='}') || (s[1]=='(') && *(d-1)==')') && *d=='#' && d[1]==' ') { d[1]=0; std::cout<<f; f=" "; std::cout<<(char*)s; break; }
                 else { d=s; break;}
               }
             }
