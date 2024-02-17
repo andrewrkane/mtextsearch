@@ -112,7 +112,7 @@ public:
       }
       for (;;getline(in,line)) { if (!in) return 0;
         PROCESSLINE:
-        if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; goto NEXTDOC; }
+        if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; getline(in,line); if (!in) return 0; goto NEXTDOC; }
         else { process(line); }
       }
     }
