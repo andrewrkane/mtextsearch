@@ -129,11 +129,12 @@ public:
     std::string prefix="", qname=""; size_t cut=query.find(';');
     if (cut!=std::string::npos) { qname=query.substr(0,cut); prefix=qname+"\t"; query=query.substr(cut+1); }
     // split into tokens
-    MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),bMath,tokens);
+    MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),tokens);
     if (stopwords.size()>0) tokens.removein_dump(stopwords); // remove stopwords
     if (bkeywords) tokens.removenotin_dump(keywords); // remove non-math token if not in keywords
     if (tokens.size()<=0) {std::cerr<<"empty query"<<std::endl; return;}
-    //{ ofstream out("queries-processed.txt",std::ios_base::app); out<<qname<<";"; for (int i=0;i<tokens.size();i++) { out<<" "<<tokens[i]; } out<<endl; return; }
+    //{ ofstream out("queries-processed.txt",std::ios_base::app); out<<qname<<";"; for (int i=0;i<tokens.size();i++) { out<<" "<<tokens[i]; } out<<std::endl; return; }
+    //{ for (int i=0;i<tokens.size();i++) { std::cout<<" "<<tokens[i]; } std::cout<<std::endl; return; }
     //std::cerr<<"found "<<tokens.size()<<" tokens"<<std::endl;
     // stats
     int doccount=docs->size(); float avgDocSize=(double)totaltokens/doccount;
@@ -153,7 +154,7 @@ public:
     postfile=new std::ifstream(fn); std::string line; //std::cerr<<"Input "<<fn<<std::endl;
     std::ifstream& in=*postfile; if (!in.is_open()) {std::cerr<<"ERROR: Could not open input file "<<fn<<std::endl; exit(-1);}
     getline(in,line); if (!in) {std::cerr<<"ERROR: Empty input file "<<fn<<std::endl; exit(-1);}
-    if (line.compare((bMath?"math.mindex.1":"text.mindex.1"))!=0) {std::cerr<<"ERROR: Unknown file format "<<fn<<" "<<line<<std::endl; exit(-1);}
+    if (!(bMath && line.compare("math.mindex.1")==0) && line.compare("text.mindex.1")!=0) {std::cerr<<"ERROR: Unknown file format "<<fn<<" "<<line<<std::endl; exit(-1);} // external math tokenizer goes to text.mindex.1
     // meta
     std::string metafn=(std::string)fn+".meta"; std::ifstream metain(metafn); if (!metain) {std::cerr<<"ERROR: loading meta file "<<metafn<<std::endl; exit(-1);}
     struct stat sb; int er=stat(fn,&sb); uint64_t fsize=(uint64_t)sb.st_size; uint64_t t; metain>>t; if (er==-1 || t!=fsize) {std::cerr<<"ERROR: meta "<<metafn<<" wrong size match for "<<fn<<std::endl; exit(-1);}

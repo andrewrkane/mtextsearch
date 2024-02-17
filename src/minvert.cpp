@@ -85,7 +85,7 @@ class Dictionary : protected std::map<cchar*, PostingsList, charcmp> { protected
     for (iterator it=begin();it!=end();++it) { out<<it->first<<"\t"; it->second.output(out); out<<std::endl; } }
 };
 
-class MInvert { public: bool bMath; protected: bool bkeywords; std::set<std::string> keywords;
+class MInvert { protected: bool bkeywords; std::set<std::string> keywords;
   std::vector<std::string> docnames; std::vector<int> docsizes; uint64_t totalpostings; int empty;
   MTokenizer tokenizer; Dictionary dict;
 
@@ -108,7 +108,7 @@ class MInvert { public: bool bMath; protected: bool bkeywords; std::set<std::str
   void doIndex(const std::string docname, /*in/edited*/ char* data, int size) {
     if (docname.compare("")==0) { std::cerr<<"ERROR: missing docname"<<std::endl; exit(-1); }
     // split into tokens
-    tokens.clear(); tokenizer.process(data,size,bMath,tokens);
+    tokens.clear(); tokenizer.process(data,size,tokens);
     if (bkeywords) tokens.removenotin(keywords); // remove non-math token if not in keywords
     if (tokens.size()<=0) { empty++; return; } // drop empty
     // setup document metadata
@@ -160,13 +160,13 @@ class MInvert { public: bool bMath; protected: bool bkeywords; std::set<std::str
   }
 
 public:
-  MInvert() { bMath=false; bkeywords=false; totalpostings=0L; empty=0; }
+  MInvert() { bkeywords=false; totalpostings=0L; empty=0; }
   void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords); }
 
   void input(std::istream& in, cchar* fn) { doIndexTREC(in,fn); }
 
   void output(std::ostream& out) {
-    out<<(bMath?"math":"text")<<".mindex.1"<<std::endl;
+    out<<"text.mindex.1"<<std::endl;
     int s=docnames.size(); std::cerr<<"Output "<<s<<" docs"<<std::endl;
     out<<s<<std::endl; for (int i=0;i<s;i++) { out<<docsizes[i]<<"\t"<<docnames[i]<<std::endl; } out<<std::endl;
     dict.output(out);
@@ -174,14 +174,13 @@ public:
 };
 
 static void usage() {
-  std::cerr<<"Usage: ./minvert.exe [-T keywords.txt] [-M] datafile ... > out.mindex"<<std::endl;
-  std::cerr<<"       ./minvert.exe [-T keywords.txt] [-M] < datafile > out.mindex"<<std::endl; exit(-1); }
+  std::cerr<<"Usage: ./minvert.exe [-T keywords.txt] datafile ... > out.mindex"<<std::endl;
+  std::cerr<<"       ./minvert.exe [-T keywords.txt] < datafile > out.mindex"<<std::endl; exit(-1); }
 
 int main(int argc, char *argv[]) {
   MInvert ms; int s=1;
   for (;;) {
     if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); ms.setT(argv[s+1]); s+=2; }
-    else if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
     else break;
   }
   if (argc-s==0) { ms.input(std::cin,"stdin"); } else if (argc-s>0) { for (;s<argc;s++) { std::ifstream in(argv[s]); if (!in) usage(); ms.input(in, argv[s]); } } else usage(); // input
