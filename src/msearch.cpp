@@ -38,7 +38,7 @@ class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; f
 bool PLIComp(PLIter*& i, PLIter*& j) { return i->current().id < j->current().id; }
 struct PLIV : public std::vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} resize(0); } };
 
-class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; int k;
+class MSearch { public: bool bMath; float alpha; protected: int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
   std::ifstream* postfile; DictionaryTwoLayer* dict; //dict(token->location) points into postfile
   MTokenizer tokenizer;
@@ -113,7 +113,7 @@ SORT_ITERS:
   }
 
 public:
-  MSearch() { bMath=false; alpha=0.18f; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; bkeywords=false; k=10; }
+  MSearch() { bMath=false; alpha=0.18f; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; k=10; }
   virtual ~MSearch() { if (docs!=NULL) delete docs; docs=NULL;
     if (dict!=NULL) delete dict; dict=NULL;
     if (postfile!=NULL) postfile->close(); postfile=NULL; }
