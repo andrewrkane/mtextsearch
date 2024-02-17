@@ -119,19 +119,23 @@ public:
   }
 };
 
-static void usage() {std::cerr<<"Usage: ./mtokenize.exe [-M] [-q] < in > out"<<std::endl<<"  where -M math, -q query file"; exit(-1);}
+static void usage() {std::cerr<<"Usage: ./mtokenize.exe [-M] [-q] [-T keywords.txt] [-S stopwords.txt] < in > out"<<std::endl<<"  where -M math, -q query file"; exit(-1);}
 
 int main(int argc, char *argv[]) {
-  MTokenize tokenize; int s=1;
+  MTokenize tokenize; int s=1; char *T=NULL, *S=NULL;
 
   for (;;) {
     if (s<argc && strstr(argv[s],"-M")==argv[s]) { tokenize.bMath=true; s++; }
     else if (s<argc && strstr(argv[s],"-q")==argv[s]) { tokenize.bQuery=true; s++; }
-    else if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); tokenize.setT(argv[s+1]); s+=2; }
-    else if (s<argc && strstr(argv[s],"-S")==argv[s]) { if (s+1>=argc) usage(); tokenize.setS(argv[s+1]); s+=2; }
+    else if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); T=argv[s+1]; s+=2; }
+    else if (s<argc && strstr(argv[s],"-S")==argv[s]) { if (s+1>=argc) usage(); S=argv[s+1]; s+=2; }
     else if (argc-s!=0) usage();
     else break;
   }
-  
+
+  // ensure loading of stopwords and keywords happens after other setting (e.g. -M math)
+  if (S!=NULL) tokenize.setS(S);
+  if (T!=NULL) tokenize.setT(T);
+
   return tokenize.process();
 }
