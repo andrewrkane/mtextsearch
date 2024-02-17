@@ -3,22 +3,13 @@
 //     This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
 
-#include <string>
 #include <vector>
-#include <set>
 #include <algorithm>
 
 // == tokenizer ======================================================
 // cut strings into tokens delimited by whitespace (no processing)
 
 typedef uint8_t byte; typedef const byte cbyte; typedef const char cchar;
-
-inline void loadwords(cchar* wordsfile, /*in/out*/ std::set<std::string>& words) {
-  std::ifstream in(wordsfile); if (!in) {std::cerr<<"ERROR: missing file "<<wordsfile<<std::endl;exit(-1);}
-  //TODO: remove whitespace? punctuation?
-  for (std::string line; getline(in,line) && in;) { words.insert(line); }
-  std::cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<std::endl;
-}
 
 // copy strings into internal storage
 class StringList { protected: char* d; int dsize; int dused; public:
@@ -41,19 +32,6 @@ public:
   public:
     inline void clear() { v.clear(); StringList::clear(); }
     inline void push_back(cbyte* s, int sl) { v.push_back(addcopy((cchar*)s,sl)-d); }
-    inline void swap_remove(int i) { int last=v.size()-1; if (i<last) v[i]=v[last]; v.pop_back(); }
-    inline void removein(const std::set<std::string>& words) {
-      int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
-    }
-    inline void removein_dump(const std::set<std::string>& words) { std::cerr<<"removing: ";
-      int drop=0; for (int i=0; i<size(); i++) { if (words.find((*this)[i])!=words.end()) { std::cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); std::cerr<<std::endl;
-    }
-    inline void removenotin(const std::set<std::string>& words) {
-      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) drop++; else v[i-drop]=v[i]; } v.resize(size()-drop);
-    }
-    inline void removenotin_dump(const std::set<std::string>& words) { std::cerr<<"removing: ";
-      int drop=0; for (int i=0; i<size(); i++) { if ((*this)[i][0]!='#' && words.find((*this)[i])==words.end()) { std::cerr<<(*this)[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(size()-drop); std::cerr<<std::endl;
-    }
     inline size_t size() const { return v.size(); }
     inline cchar* const operator[](int i) const { return d+v.at(i); } // cannot edit values
     inline void sort() { std::sort(v.begin(), v.end(), charcmp(d)); }

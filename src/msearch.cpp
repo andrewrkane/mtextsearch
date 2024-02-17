@@ -38,7 +38,7 @@ class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; f
 bool PLIComp(PLIter*& i, PLIter*& j) { return i->current().id < j->current().id; }
 struct PLIV : public std::vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} resize(0); } };
 
-class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; std::set<std::string> keywords; std::set<std::string> stopwords; int k;
+class MSearch { public: bool bMath; float alpha; protected: bool bkeywords; int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
   std::ifstream* postfile; DictionaryTwoLayer* dict; //dict(token->location) points into postfile
   MTokenizer tokenizer;
@@ -117,8 +117,6 @@ public:
   virtual ~MSearch() { if (docs!=NULL) delete docs; docs=NULL;
     if (dict!=NULL) delete dict; dict=NULL;
     if (postfile!=NULL) postfile->close(); postfile=NULL; }
-  void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords); }
-  void setS(cchar* stopwordsfile) { loadwords(stopwordsfile, stopwords); }
   void setk(int t) { if (t<=0) {std::cerr<<"ERROR: invalid k="<<t<<std::endl;exit(-1);} k=t; }
   void setAlpha(float a) { if (a<0||a>1) {std::cerr<<"ERROR: invalid alpha "<<a<<std::endl; exit(-1);} alpha=a; }
 
@@ -130,8 +128,6 @@ public:
     if (cut!=std::string::npos) { qname=query.substr(0,cut); prefix=qname+"\t"; query=query.substr(cut+1); }
     // split into tokens
     MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),tokens);
-    if (stopwords.size()>0) tokens.removein_dump(stopwords); // remove stopwords
-    if (bkeywords) tokens.removenotin_dump(keywords); // remove non-math token if not in keywords
     if (tokens.size()<=0) {std::cerr<<"empty query"<<std::endl; return;}
     //{ ofstream out("queries-processed.txt",std::ios_base::app); out<<qname<<";"; for (int i=0;i<tokens.size();i++) { out<<" "<<tokens[i]; } out<<std::endl; return; }
     //{ for (int i=0;i<tokens.size();i++) { std::cout<<" "<<tokens[i]; } std::cout<<std::endl; return; }
@@ -178,15 +174,13 @@ public:
   }
 };
 
-static void usage() {std::cerr<<"Usage: ./msearch.exe [-T keywords.txt] [-S stopwords.txt] [-k#] [-M] [-a#.#] [-dd] data.mindex < query.txt"<<std::endl<<"  where -k number to return, -M math, -a alpha math/text balance, -dd dump dictionary"<<std::endl; exit(-1);}
+static void usage() {std::cerr<<"Usage: ./msearch.exe [-k#] [-M] [-a#.#] [-dd] data.mindex < query.txt"<<std::endl<<"  where -k number to return, -M math, -a alpha math/text balance, -dd dump dictionary"<<std::endl; exit(-1);}
 
 int main(int argc, char *argv[]) {
   if (argc<2) usage();
   MSearch ms; int s=1; bool dd=false;
   for (;;) {
-    if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); ms.setT(argv[s+1]); s+=2; }
-    else if (s<argc && strstr(argv[s],"-S")==argv[s]) { if (s+1>=argc) usage(); ms.setS(argv[s+1]); s+=2; }
-    else if (s<argc && strstr(argv[s],"-k")==argv[s]) { ms.setk(std::stof(argv[s]+2)); s++; }
+    if (s<argc && strstr(argv[s],"-k")==argv[s]) { ms.setk(std::stof(argv[s]+2)); s++; }
     else if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { ms.bMath=true; s++; }
     else if (s<argc && strstr(argv[s],"-a")==argv[s]) { ms.setAlpha(std::stof(argv[s]+2)); s++; }
     else if (s<argc && strstr(argv[s],"-dd")==argv[s]) { dd=true; s++; }
