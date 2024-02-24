@@ -49,7 +49,7 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
       cchar* token=tokens[i]; int count=1; i++;
       while (i<tokens.size() && strcmp(token,tokens[i])==0) { ++count; ++i; }
       uint64_t loc=dict->getV(token);
-      if (loc==IntDeltaV::UNKNOWN) continue;
+      if (loc==IntDeltaV::UNKNOWN) continue; //not-in-data
       std::ifstream& in=*postfile; in.clear(); in.seekg(loc);
       std::string t; in>>t; if (strcmp(token,t.c_str())!=0) {std::cerr<<"ERROR: pointing to wrong token "<<token<<" -> "<<t<<std::endl; exit(-1);}
       int blen; in>>blen;
@@ -78,11 +78,11 @@ SORT_ITERS:
       //for (int i=base;i<count;i++) {std::cerr<<listIters[i].second[listIters[i].first].first<<" ";} cerr<<std::endl;
       // pivot from threshold
       float T=h.front().score;
-      int Pi=base; for (float Tmax=0.0f; Pi<count; Pi++) {Tmax+=listIters[Pi]->w*(1.2f+1.0f); if (Tmax>T) break; }
+      int Pi=base; float Smax=0.0f; for (; Pi<count; Pi++) {Smax+=listIters[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
       if (Pi>=count) break; //done
       // advance to pivot
+      int Pid=listIters[Pi]->current().id;
       if (Pi!=base) {
-        int Pid=listIters[Pi]->current().id;
         if (listIters[base]->current().id != Pid) {
           for (int i=base; i<Pi; i++) {
             PLIter& pli=*listIters[i];
@@ -93,15 +93,21 @@ SORT_ITERS:
           goto SORT_ITERS;
         }
       }
-      // score iterators at docid
-      int docid; float score=0;
-      for (int i=base; i<count; i++) {
+      // add other iterators at Pid
+      for (; Pi<count; Pi++) { if (Pi+1>=count || listIters[Pi+1]->current().id!=Pid) break; Smax+=listIters[Pi+1]->w*(1.2f+1.0f); }
+      // score iterators at docid (early termination)
+      int docid; float score=0.0f;
+      for (int i=base; i<=Pi; i++) {
         PLIter& pli=*listIters[i]; const Posting& p=pli.current(); if (i==base) docid=p.id; else if (p.id!=docid) break;
         // BM25 see https://en.wikipedia.org/wiki/Okapi_BM25
         float tf=p.freq*(1.2f+1.0f) / (p.freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
         //std::cerr<<"p.freq="<<p.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
         //std::cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<std::endl;
-        score += tf*pli.w;
+        score += tf*pli.w; Smax -= pli.w*(1.2f+1.0f);
+        if ((score+Smax)<=T) {
+          for (; i<=Pi; i++) { if (!listIters[i]->next()) { std::swap(listIters[base], listIters[i]); base++; } }
+          goto SORT_ITERS;
+        }
         // advance iterators at docid
         if (!pli.next()) { std::swap(listIters[base], listIters[i]); base++; }
       }
