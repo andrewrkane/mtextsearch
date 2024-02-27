@@ -84,9 +84,8 @@ SORT_ITERS:
       if (Pi!=base && listIters[base]->current().id != Pid) {
         for (int i=base; i<Pi; i++) {
           PLIter& pli=*listIters[i];
-          while (pli.current().id<Pid) {
-            if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; }
-          } //skip
+          if (!(pli.current().id<Pid)) break;
+          while (pli.current().id<Pid) { if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; } } //skip
         }
         goto SORT_ITERS;
       }
