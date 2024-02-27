@@ -79,18 +79,16 @@ SORT_ITERS:
       // pivot from threshold
       int Pi=base; float Smax=0.0f; for (; Pi<count; Pi++) {Smax+=listIters[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
       if (Pi>=count) break; //done
-      // advance to pivot
       int Pid=listIters[Pi]->current().id;
-      if (Pi!=base) {
-        if (listIters[base]->current().id != Pid) {
-          for (int i=base; i<Pi; i++) {
-            PLIter& pli=*listIters[i];
-            while (pli.current().id<Pid) {
-              if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; }
-            } //skip
-          }
-          goto SORT_ITERS;
+      // advance to pivot
+      if (Pi!=base && listIters[base]->current().id != Pid) {
+        for (int i=base; i<Pi; i++) {
+          PLIter& pli=*listIters[i];
+          while (pli.current().id<Pid) {
+            if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; }
+          } //skip
         }
+        goto SORT_ITERS;
       }
       // add other iterators at Pid
       for (; Pi<count; Pi++) { if (Pi+1>=count || listIters[Pi+1]->current().id!=Pid) break; Smax+=listIters[Pi+1]->w*(1.2f+1.0f); }
