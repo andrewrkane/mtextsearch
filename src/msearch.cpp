@@ -124,10 +124,10 @@ public:
 
   void query(std::string query) {
     std::chrono::high_resolution_clock::time_point s=std::chrono::high_resolution_clock::now();
-    std::cerr<<"query: "<<query<<std::endl;
     // named vs normal
     std::string prefix="", qname=""; size_t cut=query.find(';');
     if (cut!=std::string::npos) { qname=query.substr(0,cut); prefix=qname+"\t"; query=query.substr(cut+1); }
+    std::cerr<<"query: "<<(true&&cut!=std::string::npos?qname:query)<<std::endl;
     // split into tokens
     MTokenizer::TokenList tokens; tokenizer.process(query.c_str(),query.length(),tokens);
     if (tokens.size()<=0) {std::cerr<<"empty query"<<std::endl; return;}
