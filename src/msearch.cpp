@@ -21,7 +21,7 @@ struct Scored { int docid; float score; Scored(int d,float s) {docid=d; score=s;
 bool mincomp(const Scored& a, const Scored& b) { return a.score>b.score; } // score order
 class TopkHeap : public std::vector<Scored> { public:
   TopkHeap(int topk=5) : std::vector<Scored>(topk,EmptyScore) {}
-  inline void add(int docid, float score) { if (score>front().score) { pop_heap(begin(),end(),mincomp); pop_back(); push_back(Scored(docid,score)); push_heap(begin(),end(),mincomp); } }
+  inline bool add(int docid, float score) { if (score>front().score) { pop_heap(begin(),end(),mincomp); pop_back(); push_back(Scored(docid,score)); push_heap(begin(),end(),mincomp); return true; } return false; }
   void done() { sort(begin(),end(),mincomp); }
   //void dump() { for (int i=0;i<size();i++) {std::cerr<<(*this)[i].docid<<":"<<(*this)[i].score<<" ";} std::cerr<<std::endl; }
 };
@@ -66,7 +66,7 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
   void doQuery(/*in*/const std::string& prefix, /*in*/PLIV& listIters, std::ostream& out, int doccount, float avgDocSize) {
     // intersect iterators w scoring
     int count=listIters.size(), base=0; // below base are already finished iterating
-    TopkHeap h(k);
+    TopkHeap h(k); float T=0.0f;
     // precompute IDF for BM25
     for (int i=0;i<count;i++) { PLIter& pli=*listIters[i];
       pli.w*=log(1.0f+((float)doccount-pli.plsize+0.5f)/(pli.plsize+0.5f));
@@ -77,7 +77,6 @@ SORT_ITERS:
       sort(listIters.begin()+base, listIters.end(), PLIComp);
       //for (int i=base;i<count;i++) {std::cerr<<listIters[i].second[listIters[i].first].first<<" ";} cerr<<std::endl;
       // pivot from threshold
-      float T=h.front().score;
       int Pi=base; float Smax=0.0f; for (; Pi<count; Pi++) {Smax+=listIters[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
       if (Pi>=count) break; //done
       // advance to pivot
@@ -111,7 +110,7 @@ SORT_ITERS:
         // advance iterators at docid
         if (!pli.next()) { std::swap(listIters[base], listIters[i]); base++; }
       }
-      h.add(docid,score);
+      if (h.add(docid,score)) { T=h.front().score; }
     }
     h.done();
     // output
