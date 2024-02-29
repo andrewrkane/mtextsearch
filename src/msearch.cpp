@@ -32,10 +32,10 @@ class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; f
     if (plsize>docs->size()) {std::cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<std::endl; exit(-1);}
   }
   virtual ~PLIter() { delete data; data=d=dend=NULL; }
-  inline const Posting& current() { return p; }
+  inline const Posting& current() const { return p; }
   inline bool next() { if (d>=dend) return false; p.id+=readVByte(d); p.freq=readVByte(d); return true; }
 };
-bool PLIComp(PLIter*& i, PLIter*& j) { return i->current().id < j->current().id; }
+inline bool PLICompID(const PLIter* i, const PLIter* j) { return i->current().id < j->current().id; }
 struct PLIV : public std::vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} resize(0); } };
 
 class MSearch { public: bool bMath; float alpha; protected: int k;
@@ -74,7 +74,7 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
     }
     while (base<count) {
 SORT_ITERS:
-      sort(listIters.begin()+base, listIters.end(), PLIComp);
+      sort(listIters.begin()+base, listIters.end(), PLICompID);
       //for (int i=base;i<count;i++) {std::cerr<<listIters[i].second[listIters[i].first].first<<" ";} cerr<<std::endl;
       // pivot from threshold
       int Pi=base; float Smax=0.0f; for (; Pi<count; Pi++) {Smax+=listIters[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
