@@ -5,7 +5,7 @@ exe=msearch.exe mmerge.exe minvert.exe mstrip.exe mencode.exe mtokenize.exe
 all: $(exe)
 
 %.exe: src/%.cpp src/*.hpp
-	g++ -o $@ $<
+	g++ -O3 -o $@ $<
 
 test_%.exe: testsrc/test_%.cpp src/*.hpp
 	g++ -Isrc -o $@ $<
