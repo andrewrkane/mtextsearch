@@ -62,48 +62,48 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
   }
 
   void doQuery(/*in*/const std::string& prefix, /*in*/PLIV& listIters, std::ostream& out, int doccount, float avgDocSize) {
+    std::vector<PLIter*> X=listIters; //copy
     // intersect iterators w scoring
-    int count=listIters.size(), base=0; // below base are already finished iterating
     TopkHeap h(k); float T=0.0f;
     // precompute IDF for BM25
-    for (int i=0;i<count;i++) { PLIter& pli=*listIters[i];
+    for (int i=0;i<X.size();i++) { PLIter& pli=*X[i];
       pli.w*=log(1.0f+((float)doccount-pli.plsize+0.5f)/(pli.plsize+0.5f));
       //std::cerr<<"idf*weight="<<pli.w<<std::endl;
     }
-    while (base<count) {
+    while (X.size()>0) {
 SORT_ITERS:
-      sort(listIters.begin()+base, listIters.end(), PLICompID);
-      //for (int i=base;i<count;i++) {std::cerr<<listIters[i].id<<" ";} cerr<<std::endl;
+      sort(X.begin(), X.end(), PLICompID);
+      //for (int i=0;i<X.size();i++) {std::cerr<<X[i].id<<" ";} cerr<<std::endl;
       // pivot from threshold
-      int Pi=base; float Smax=0.0f; for (; Pi<count; Pi++) {Smax+=listIters[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
-      if (Pi>=count) break; //done
-      int Pid=listIters[Pi]->id;
+      int Pi=0; float Smax=0.0f; for (; Pi<X.size(); Pi++) {Smax+=X[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
+      if (Pi>=X.size()) break; //done
+      int Pid=X[Pi]->id;
       // advance to pivot
-      if (Pi!=base && listIters[base]->id != Pid) {
-        for (int i=base; i<Pi; i++) {
-          PLIter& pli=*listIters[i];
+      if (Pi!=0 && X[0]->id != Pid) {
+        for (int i=0; i<Pi; i++) {
+          PLIter& pli=*X[i];
           if (!(pli.id<Pid)) break;
-          while (pli.id<Pid) { if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; } } //skip
+          while (pli.id<Pid) { if (!pli.next()) { X.erase(X.begin()+i); i--; Pi--; break; } } //skip
         }
         goto SORT_ITERS;
       }
       // add other iterators at Pid
-      for (; Pi<count; Pi++) { if (Pi+1>=count || listIters[Pi+1]->id!=Pid) break; Smax+=listIters[Pi+1]->w*(1.2f+1.0f); }
+      for (; Pi<X.size(); Pi++) { if (Pi+1>=X.size() || X[Pi+1]->id!=Pid) break; Smax+=X[Pi+1]->w*(1.2f+1.0f); }
       // score iterators at docid (early termination)
       int docid; float score=0.0f;
-      for (int i=base; i<=Pi; i++) {
-        PLIter& pli=*listIters[i]; if (i==base) docid=pli.id; else if (pli.id!=docid) break;
+      for (int i=0; i<=Pi; i++) {
+        PLIter& pli=*X[i]; if (i==0) docid=pli.id; else if (pli.id!=docid) break;
         // BM25 see https://en.wikipedia.org/wiki/Okapi_BM25
         float tf=pli.freq*(1.2f+1.0f) / (pli.freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
         //std::cerr<<"pli.freq="<<pli.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
         //std::cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<std::endl;
         score += tf*pli.w; Smax -= pli.w*(1.2f+1.0f);
         if ((score+Smax)<=T) {
-          for (; i<=Pi; i++) { if (!listIters[i]->next()) { std::swap(listIters[base], listIters[i]); base++; } }
+          for (; i<=Pi; i++) { if (!X[i]->next()) { X.erase(X.begin()+i); i--; Pi--; } }
           goto SORT_ITERS;
         }
         // advance iterators at docid
-        if (!pli.next()) { std::swap(listIters[base], listIters[i]); base++; }
+        if (!pli.next()) { X.erase(X.begin()+i); i--; Pi--; }
       }
       if (h.add(docid,score)) { T=h.front().score; }
     }
