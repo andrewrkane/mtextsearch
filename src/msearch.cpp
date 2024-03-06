@@ -26,16 +26,14 @@ class TopkHeap : public std::vector<Scored> { public:
   //void dump() { for (int i=0;i<size();i++) {std::cerr<<(*this)[i].docid<<":"<<(*this)[i].score<<" ";} std::cerr<<std::endl; }
 };
 
-struct Posting { int32_t id; int32_t freq; Posting(int id, int freq) { this->id=id; this->freq=freq; } };
-class PLIter { byte* data; byte* d; byte* dend; Posting p; public: int plsize; float w;
-  PLIter(DocnamesTwoLayer* docs, byte* data, int blen, float weight) : p(0,0), w(weight) { this->data=data; d=data; dend=d+blen; plsize=readVByte(d); int lastid=(plsize>1?readVByte(d):-1); next();
+class PLIter { byte* data; byte* d; byte* dend; public: int32_t id; int32_t freq; int plsize; float w;
+  PLIter(DocnamesTwoLayer* docs, byte* data, int blen, float weight) : id(0),freq(0),w(weight) { this->data=data; d=data; dend=d+blen; plsize=readVByte(d); int lastid=(plsize>1?readVByte(d):-1); next();
     if (plsize>docs->size()) {std::cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<std::endl; exit(-1);}
   }
   virtual ~PLIter() { delete data; data=d=dend=NULL; }
-  inline const Posting& current() const { return p; }
-  inline bool next() { if (d>=dend) return false; p.id+=readVByte(d); p.freq=readVByte(d); return true; }
+  inline bool next() { if (d>=dend) return false; id+=readVByte(d); freq=readVByte(d); return true; }
 };
-inline bool PLICompID(const PLIter* i, const PLIter* j) { return i->current().id < j->current().id; }
+inline bool PLICompID(const PLIter* i, const PLIter* j) { return i->id < j->id; }
 struct PLIV : public std::vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} resize(0); } };
 
 class MSearch { public: bool bMath; float alpha; protected: int k;
@@ -75,29 +73,29 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
     while (base<count) {
 SORT_ITERS:
       sort(listIters.begin()+base, listIters.end(), PLICompID);
-      //for (int i=base;i<count;i++) {std::cerr<<listIters[i].second[listIters[i].first].first<<" ";} cerr<<std::endl;
+      //for (int i=base;i<count;i++) {std::cerr<<listIters[i].id<<" ";} cerr<<std::endl;
       // pivot from threshold
       int Pi=base; float Smax=0.0f; for (; Pi<count; Pi++) {Smax+=listIters[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
       if (Pi>=count) break; //done
-      int Pid=listIters[Pi]->current().id;
+      int Pid=listIters[Pi]->id;
       // advance to pivot
-      if (Pi!=base && listIters[base]->current().id != Pid) {
+      if (Pi!=base && listIters[base]->id != Pid) {
         for (int i=base; i<Pi; i++) {
           PLIter& pli=*listIters[i];
-          if (!(pli.current().id<Pid)) break;
-          while (pli.current().id<Pid) { if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; } } //skip
+          if (!(pli.id<Pid)) break;
+          while (pli.id<Pid) { if (!pli.next()) { std::swap(listIters[base],listIters[i]); base++; break; } } //skip
         }
         goto SORT_ITERS;
       }
       // add other iterators at Pid
-      for (; Pi<count; Pi++) { if (Pi+1>=count || listIters[Pi+1]->current().id!=Pid) break; Smax+=listIters[Pi+1]->w*(1.2f+1.0f); }
+      for (; Pi<count; Pi++) { if (Pi+1>=count || listIters[Pi+1]->id!=Pid) break; Smax+=listIters[Pi+1]->w*(1.2f+1.0f); }
       // score iterators at docid (early termination)
       int docid; float score=0.0f;
       for (int i=base; i<=Pi; i++) {
-        PLIter& pli=*listIters[i]; const Posting& p=pli.current(); if (i==base) docid=p.id; else if (p.id!=docid) break;
+        PLIter& pli=*listIters[i]; if (i==base) docid=pli.id; else if (pli.id!=docid) break;
         // BM25 see https://en.wikipedia.org/wiki/Okapi_BM25
-        float tf=p.freq*(1.2f+1.0f) / (p.freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
-        //std::cerr<<"p.freq="<<p.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
+        float tf=pli.freq*(1.2f+1.0f) / (pli.freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
+        //std::cerr<<"pli.freq="<<pli.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
         //std::cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<std::endl;
         score += tf*pli.w; Smax -= pli.w*(1.2f+1.0f);
         if ((score+Smax)<=T) {
