@@ -18,7 +18,7 @@
 /* read in mindex file, run queries from stdin, output DOCNO results to stdout */
 
 struct Scored { int docid; float score; Scored(int d,float s) {docid=d; score=s;} }; Scored EmptyScore(-1,-1);
-bool mincomp(const Scored& a, const Scored& b) { return a.score>b.score; } // score order
+inline bool mincomp(const Scored& a, const Scored& b) { return a.score>b.score; } // score order
 class TopkHeap : public std::vector<Scored> { public:
   TopkHeap(int topk=5) : std::vector<Scored>(topk,EmptyScore) {}
   inline bool add(int docid, float score) { if (score>front().score) { pop_heap(begin(),end(),mincomp); pop_back(); push_back(Scored(docid,score)); push_heap(begin(),end(),mincomp); return true; } return false; }
@@ -26,15 +26,16 @@ class TopkHeap : public std::vector<Scored> { public:
   //void dump() { for (int i=0;i<size();i++) {std::cerr<<(*this)[i].docid<<":"<<(*this)[i].score<<" ";} std::cerr<<std::endl; }
 };
 
-class PLIter { byte* data; byte* d; byte* dend; public: int32_t id; int32_t freq; int plsize; float w;
-  PLIter(DocnamesTwoLayer* docs, byte* data, int blen, float weight) : id(0),freq(0),w(weight) { this->data=data; d=data; dend=d+blen; plsize=readVByte(d); int lastid=(plsize>1?readVByte(d):-1); next();
-    if (plsize>docs->size()) {std::cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<std::endl; exit(-1);}
-  }
-  virtual ~PLIter() { delete data; data=d=dend=NULL; }
+class PLIter { byte* d; byte* dend; public: int32_t id; int32_t freq; int plsize; float w;
+  PLIter() {std::cerr<<"ERROR: PLIter()"<<std::endl; exit(-1);}
+  PLIter(byte* data, int blen, float weight) { d=data; dend=d+blen; id=freq=0; plsize=readVByte(d); w=weight; int lastid=(plsize>1?readVByte(d):-1); next(); }
   inline bool next() { if (d>=dend) return false; id+=readVByte(d); freq=readVByte(d); return true; }
 };
 inline bool PLICompID(const PLIter* i, const PLIter* j) { return i->id < j->id; }
-struct PLIV : public std::vector<PLIter*> { virtual ~PLIV() { for (int i=0;i<size();++i) {delete (*this)[i];} resize(0); } };
+class PLIV : public std::vector<PLIter> { protected: std::vector<byte*> datav; public:
+  PLIter& add(byte* data, int blen, float weight) { datav.push_back(data); push_back(PLIter(data,blen,weight)); return (*this)[size()-1]; } //this vector owns data array
+  virtual ~PLIV() { for (int i=0;i<datav.size();++i) { delete datav[i]; } datav.resize(0); resize(0); }
+};
 
 class MSearch { public: bool bMath; float alpha; protected: int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
@@ -56,20 +57,21 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
       in.read((char*)data,blen);
       { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings "<<token<<std::endl; exit(-1);} }
       float weight=count/(count+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0f-alpha); }
-      PLIter* pli=new PLIter(docs,data,blen,weight); listIters.push_back(pli); //iterator owns data array
+      PLIter& pli=listIters.add(data,blen,weight);
+      if (pli.plsize>docs->size()) {std::cerr<<"ERROR: plsize "<<pli.plsize<<" > docs.size "<<docs->size()<<std::endl; exit(-1);}
       //std::cerr<<"Found \'"<<token<<"\' count="<<count<<" plsize="<<pli->plsize<<" bytelength="<<blen<<std::endl;
     }
   }
 
   void doQuery(/*in*/const std::string& prefix, /*in*/PLIV& listIters, std::ostream& out, int doccount, float avgDocSize) {
-    std::vector<PLIter*> X=listIters; //copy
-    // intersect iterators w scoring
-    TopkHeap h(k); float T=0.0f;
     // precompute IDF for BM25
-    for (int i=0;i<X.size();i++) { PLIter& pli=*X[i];
+    for (int i=0;i<listIters.size();i++) { PLIter& pli=listIters[i];
       pli.w*=log(1.0f+((float)doccount-pli.plsize+0.5f)/(pli.plsize+0.5f));
       //std::cerr<<"idf*weight="<<pli.w<<std::endl;
     }
+    // intersect iterators w scoring
+    TopkHeap h(k); float T=0.0f;
+    std::vector<PLIter*> X; for (int i=0;i<listIters.size();i++) X.push_back(&listIters[i]);
     while (X.size()>0) {
 SORT_ITERS:
       sort(X.begin(), X.end(), PLICompID);
