@@ -3,7 +3,7 @@
 //     This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
 
-#include <string>
+#include <cstring> //for Windows
 #include <vector>
 #include <algorithm>
 
