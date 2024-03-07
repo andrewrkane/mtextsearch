@@ -98,14 +98,13 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
         //std::cerr<<"pli.freq="<<pli.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
         //std::cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<std::endl;
         score += tf*pli.w; Smax -= pli.w*(1.2f+1.0f);
-        if ((score+Smax)<=T) {
-          for (; i<=Pi; i++) { if (!X[i]->next()) { X.erase(X.begin()+i); i--; Pi--; } }
-          goto SORT_ITERS;
-        }
-        // advance iterators at docid
-        if (!pli.next()) { X.erase(X.begin()+i); i--; Pi--; }
+        if ((score+Smax)<=T) { goto ADVANCE_SCORED; }
       }
       if (h.add(docid,score)) { T=h.front().score; }
+      ADVANCE_SCORED:
+      for (int i=0; i<=Pi; i++) { PLIter& pli=*X[i];
+        if (!pli.next()) { X.erase(X.begin()+i); i--; Pi--; }
+      }
     }
     h.done();
     // output
