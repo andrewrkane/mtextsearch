@@ -73,18 +73,16 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
     TopkHeap h(k); float T=0.0f;
     std::vector<PLIter*> X; for (int i=0;i<listIters.size();i++) X.push_back(&listIters[i]);
     while (X.size()>0) {
-SORT_ITERS:
+      SORT_ITERS:
       sort(X.begin(), X.end(), PLICompID);
-      //for (int i=0;i<X.size();i++) {std::cerr<<X[i].id<<" ";} cerr<<std::endl;
+      //for (int i=0;i<X.size();i++) {std::cerr<<X[i]->id<<" ";} std::cerr<<std::endl;
       // pivot from threshold
       int Pi=0; float Smax=0.0f; for (; Pi<X.size(); Pi++) {Smax+=X[Pi]->w*(1.2f+1.0f); if (Smax>T) break; }
       if (Pi>=X.size()) break; //done
       int Pid=X[Pi]->id;
       // advance to pivot
       if (Pi!=0 && X[0]->id != Pid) {
-        for (int i=0; i<Pi; i++) {
-          PLIter& pli=*X[i];
-          if (!(pli.id<Pid)) break;
+        for (int i=0; i<Pi; i++) { PLIter& pli=*X[i];
           while (pli.id<Pid) { if (!pli.next()) { X.erase(X.begin()+i); i--; Pi--; break; } } //skip
         }
         goto SORT_ITERS;
