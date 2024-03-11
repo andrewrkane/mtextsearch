@@ -6,11 +6,15 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <cmath> // for log()
 #include <algorithm>
 #include <chrono>
+#include <unistd.h> // for close
 #include <sys/stat.h>
+#include <sys/fcntl.h> // for O_RDONLY
+#include <sys/mman.h> // for mmap
 
 #include "mtokenizer.hpp"
 #include "mdictionary.hpp"
@@ -32,34 +36,41 @@ class PLIter { byte* d; byte* dend; public: int32_t id; int32_t freq; int plsize
   inline bool next() { if (d>=dend) return false; id+=readVByte(d); freq=readVByte(d); return true; }
 };
 inline bool PLICompID(const PLIter* i, const PLIter* j) { return i->id < j->id; }
-class PLIV : public std::vector<PLIter> { protected: std::vector<byte*> datav; public:
-  PLIter& add(byte* data, int blen, float weight) { datav.push_back(data); push_back(PLIter(data,blen,weight)); return (*this)[size()-1]; } //this vector owns data array
-  virtual ~PLIV() { for (int i=0;i<datav.size();++i) { delete datav[i]; } datav.resize(0); resize(0); }
-};
+class PLIV : public std::vector<PLIter> {};
 
 class MSearch { public: bool bMath; float alpha; protected: int k;
   DocnamesTwoLayer* docs; uint64_t totaltokens; //docs(docname->docsize)
-  std::ifstream* postfile; DictionaryTwoLayer* dict; //dict(token->location) points into postfile
+  int pffd; char* mmpf; int64_t pfsize; //memory map of postfile
+  DictionaryTwoLayer* dict; //dict(token->location) points into postfile
   MTokenizer tokenizer;
+
+  inline std::string getlinepf(char*& x /*in/out*/) { char* e=(char*)memchr((const void*)x,'\n',1<<10); std::string r=std::string(x,e-x); if (*e=='\n') x=e; return r; }
+
+  inline PLIter loadPL(uint64_t loc, float weight, /*out*/std::string& t) {
+    char* x=mmpf+loc; std::istringstream in(getlinepf(x));
+    if (*x!='\n') {std::cerr<<"ERROR: bad token location data "<<std::string(x,1<<10)<<std::endl; exit(-1);}
+    // TODO: make index handle tokens with spaces
+    x++; in>>t; int blen; in>>blen;
+    { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings info "<<t<<" "<<line<<std::endl; exit(-1);} }
+    volatile char touch=0; for (char* p=x; p<x+blen; p+=1<<12) { touch+=*p; } //force load into memory
+    { if (*(x+blen)!='\n') {std::cerr<<"ERROR: index extra postings "<<t<<std::endl; exit(-1);} }
+    PLIter pli((byte*)x,blen,weight);
+    if (pli.plsize>docs->size()) {std::cerr<<"ERROR: plsize "<<pli.plsize<<" > docs.size "<<docs->size()<<std::endl; exit(-1);}
+    return pli;
+  }
 
   inline void getIterators(/*in*/MTokenizer::TokenList& tokens, /*out*/PLIV& listIters) {
     tokens.sort();
     for (int i=0;i<tokens.size();) {
       cchar* token=tokens[i]; int count=1; i++;
       while (i<tokens.size() && strcmp(token,tokens[i])==0) { ++count; ++i; }
+      float weight=count/(count+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0f-alpha); }
       uint64_t loc=dict->getV(token);
       if (loc==IntDeltaV::UNKNOWN) continue; //not-in-data
-      std::ifstream& in=*postfile; in.clear(); in.seekg(loc);
-      std::string t; in>>t; if (strcmp(token,t.c_str())!=0) {std::cerr<<"ERROR: pointing to wrong token "<<token<<" -> "<<t<<std::endl; exit(-1);}
-      int blen; in>>blen;
-      { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings info "<<token<<std::endl; exit(-1);} }
-      byte* data=new byte[blen];
-      in.read((char*)data,blen);
-      { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings "<<token<<std::endl; exit(-1);} }
-      float weight=count/(count+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0f-alpha); }
-      PLIter& pli=listIters.add(data,blen,weight);
-      if (pli.plsize>docs->size()) {std::cerr<<"ERROR: plsize "<<pli.plsize<<" > docs.size "<<docs->size()<<std::endl; exit(-1);}
-      //std::cerr<<"Found \'"<<token<<"\' count="<<count<<" plsize="<<pli->plsize<<" bytelength="<<blen<<std::endl;
+
+      std::string t; PLIter pli=loadPL(loc,weight,t);
+      if (strcmp(token,t.c_str())!=0) {std::cerr<<"ERROR: pointing to wrong token "<<token<<" -> "<<t<<std::endl; exit(-1);}
+      listIters.push_back(pli);
     }
   }
 
@@ -112,10 +123,11 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
   }
 
 public:
-  MSearch() { bMath=false; alpha=0.18f; docs=NULL; totaltokens=0; postfile=NULL; dict=NULL; k=10; }
+  MSearch() { bMath=false; alpha=0.18f; docs=NULL; totaltokens=0; dict=NULL; pffd=-1; mmpf=NULL; pfsize=0; k=10; }
   virtual ~MSearch() { if (docs!=NULL) delete docs; docs=NULL;
     if (dict!=NULL) delete dict; dict=NULL;
-    if (postfile!=NULL) postfile->close(); postfile=NULL; }
+    if (mmpf!=NULL) munmap(mmpf,pfsize); mmpf=NULL;
+    if (pffd>=0) close(pffd); pffd=-1; pfsize=0; }
   void setk(int t) { if (t<=0) {std::cerr<<"ERROR: invalid k="<<t<<std::endl;exit(-1);} k=t; }
   void setAlpha(float a) { if (a<0||a>1) {std::cerr<<"ERROR: invalid alpha "<<a<<std::endl; exit(-1);} alpha=a; }
 
@@ -144,12 +156,17 @@ public:
 
   void input(const char* fn) {
     //std::chrono::high_resolution_clock::time_point s=std::chrono::high_resolution_clock::now();
+    std::string line;
     // postfile
-    if (postfile!=NULL) {std::cerr<<"ERROR: only supporting one index file"<<std::endl; exit(-1);}
-    postfile=new std::ifstream(fn); std::string line; //std::cerr<<"Input "<<fn<<std::endl;
-    std::ifstream& in=*postfile; if (!in.is_open()) {std::cerr<<"ERROR: Could not open input file "<<fn<<std::endl; exit(-1);}
-    getline(in,line); if (!in) {std::cerr<<"ERROR: Empty input file "<<fn<<std::endl; exit(-1);}
+    if (pffd>=0 || mmpf!=NULL || pfsize!=0) {std::cerr<<"ERROR: only supporting one index file"<<std::endl; exit(-1);}
+    pffd=open(fn,O_RDONLY); struct stat sbindex; fstat(pffd, &sbindex); pfsize=sbindex.st_size;
+    if (pffd<0) {std::cerr<<"ERROR: Could not open input file "<<fn<<std::endl; exit(-1);}
+    mmpf=(char*)mmap(NULL, pfsize, PROT_READ, MAP_SHARED, pffd, 0);
+    if (mmpf==MAP_FAILED) {std::cerr<<"ERROR: failed memory map of index file "<<fn<<std::endl; exit(-1);}
+    std::cerr<<"Mapped index "<<fn<<" size "<<pfsize<<std::endl;
+    char* x=mmpf; line=getlinepf(x); if (*x!='\n') {std::cerr<<"ERROR: Bad or empty input file "<<fn<<std::endl; exit(-1);}
     if (!(bMath && line.compare("math.mindex.1")==0) && line.compare("text.mindex.1")!=0) {std::cerr<<"ERROR: Unknown file format "<<fn<<" "<<line<<std::endl; exit(-1);} // external math tokenizer goes to text.mindex.1
+    //volatile char touch=0; for (char* p=mmpf; p<mmpf+pfsize; p+=1<<12) { touch+=*p; } //force load into memory
     // meta
     std::string metafn=(std::string)fn+".meta"; std::ifstream metain(metafn); if (!metain) {std::cerr<<"ERROR: loading meta file "<<metafn<<std::endl; exit(-1);}
     struct stat sb; int er=stat(fn,&sb); uint64_t fsize=(uint64_t)sb.st_size; uint64_t t; metain>>t; if (er==-1 || t!=fsize) {std::cerr<<"ERROR: meta "<<metafn<<" wrong size match for "<<fn<<std::endl; exit(-1);}
@@ -163,12 +180,9 @@ public:
   void dumpDictionary() {
     std::ostream& out=std::cout;
     for (int i=0;i<dict->size();i++) {
-      uint64_t loc=dict->getV(i); std::ifstream& in=*postfile; in.clear(); in.seekg(loc);
-      std::string t; in>>t; int blen; in>>blen; //only non-math
-      { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings "<<t<<std::endl; exit(-1);} }
-      byte data[10]; byte* d=data; in.read((char*)data,std::min(10,blen)); int plsize=readVByte(d);
-      if (plsize>docs->size()) {std::cerr<<"ERROR: bad plsize "<<plsize<<" > docs-size "<<docs->size()<<std::endl; exit(-1);}
-      out<<plsize<<"\t"<<t<<std::endl;
+      uint64_t loc=dict->getV(i);
+      std::string t; PLIter pli=loadPL(loc,0.0f,t);
+      out<<pli.plsize<<"\t"<<t<<std::endl;
     }
   }
 };
