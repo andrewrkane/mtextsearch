@@ -44,11 +44,13 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
   DictionaryTwoLayer* dict; //dict(token->location) points into postfile
   MTokenizer tokenizer;
 
-  inline std::string getlinepf(char*& x /*in/out*/) { char* e=(char*)memchr((const void*)x,'\n',1<<10); std::string r=std::string(x,e-x); if (*e=='\n') x=e; return r; }
+  // TODO: assumes token sizes are less than 2^14
+  inline std::string getlinepf(char*& x /*in/out*/) { char* e=x; for (;e<x+(1<<14);e++) { if (*e=='\n') break; } std::string r=std::string(x,e-x); if (*e=='\n') x=e; return r; }
 
   inline PLIter loadPL(uint64_t loc, float weight, /*out*/std::string& t) {
+    if (loc>=pfsize) {std::cerr<<"ERROR: bad location "<<loc<<" max is "<<pfsize<<std::endl; exit(-1);}
     char* x=mmpf+loc; std::istringstream in(getlinepf(x));
-    if (*x!='\n') {std::cerr<<"ERROR: bad token location data "<<std::string(x,1<<10)<<std::endl; exit(-1);}
+    if (*x!='\n') {std::cerr<<"ERROR: bad token location data "<<std::string(x,1<<14)<<std::endl; exit(-1);}
     // TODO: make index handle tokens with spaces
     x++; in>>t; int blen; in>>blen;
     { std::string line; getline(in,line); if (line.compare("")!=0) {std::cerr<<"ERROR: index extra postings info "<<t<<" "<<line<<std::endl; exit(-1);} }
