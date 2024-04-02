@@ -36,8 +36,8 @@ class MTokenize { public: bool bMath, bQuery; protected: bool bkeywords; std::se
 
 public:
   inline MTokenize() : bMath(false), bQuery(false), bkeywords(false) { setupArrays(); }
-  void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords); }
-  void setS(cchar* stopwordsfile) { loadwords(stopwordsfile, stopwords); }
+  void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords, true); }
+  void setS(cchar* stopwordsfile, bool bstem) { loadwords(stopwordsfile, stopwords, bstem); }
 
   inline void doProcess(char* data, int size, /*in/out*/ std::vector<cchar*>& v) {
     byte* d=(byte*)data; byte* dend=d+size;
@@ -66,16 +66,43 @@ public:
     }
   }
 
-  inline void loadwords(std::string& line, /*in/out*/ std::set<std::string>& words) {
+  inline void doProcessNoStem(char* data, int size, /*in/out*/ std::vector<cchar*>& v) {
+    byte* d=(byte*)data; byte* dend=d+size;
+    if (bMath) {
+      for(;d<dend;d++) {
+        if (tkmath[*d]) { byte* s=d++;
+          if (*s=='#') { // try to find math tuples
+            for (;;d++) {
+              if (d>=dend || me[*d]) {
+                if (d>s+3 && ((s[1]=='{' && d[-1]=='}') || (s[1]=='(' && d[-1]==')')) && d[0]=='#' && (d+1>=dend || d[1]==' ')) { d[1]=0; v.push_back((cchar*)s); break; }
+                else { d=s; break;}
+              }
+            }
+          } else { // non-math doesn't start with #
+            for(;;d++) { if (d>=dend || !tk[*d]) { *d=0; v.push_back(tolower((char*)s)); break; } }
+          }
+        }
+      }
+    } else {
+      for(;d<dend;d++) {
+        if (tk[*d]) { cbyte* s=d++;
+          //if (d<dend && *(d-1)=='<' && *d=='/') d++; // end tags
+          for(;;d++) { if (d>=dend || !tk[*d]) { *d=0; v.push_back(tolower((char*)s)); break; } }
+        }
+      }
+    }
+  }
+
+  inline void loadwords(std::string& line, /*in/out*/ std::set<std::string>& words, bool bstem) {
     char* data=strdup(line.c_str()); // new owned array TODO: read to editable buffer directly?
-    std::vector<cchar*> v; doProcess(data,line.size(),v);
+    std::vector<cchar*> v; if (bstem) doProcess(data,line.size(),v); else doProcessNoStem(data,line.size(),v);
     for (int i=0;i<v.size();i++) { words.insert(v[i]); }
     delete data; data=NULL; // cleanup
   }
 
-  inline void loadwords(cchar* wordsfile, /*in/out*/ std::set<std::string>& words) {
+  inline void loadwords(cchar* wordsfile, /*in/out*/ std::set<std::string>& words, bool bstem) {
     std::ifstream in(wordsfile); if (!in) {std::cerr<<"ERROR: missing file "<<wordsfile<<std::endl;exit(-1);}
-    for (std::string line; getline(in,line) && in;) { loadwords(line,words); }
+    for (std::string line; getline(in,line) && in;) { loadwords(line,words,bstem); }
     std::cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<std::endl;
   }
 
@@ -119,22 +146,23 @@ public:
   }
 };
 
-static void usage() {std::cerr<<"Usage: ./mtokenize.exe [-M] [-q] [-T keywords.txt] [-S stopwords.txt] < in > out"<<std::endl<<"  where -M math, -q query file"; exit(-1);}
+static void usage() {std::cerr<<"Usage: ./mtokenize.exe [-M] [-q] [-T keywords.txt] [-S stopwords.txt] < in > out"<<std::endl<<"  where -M math, -q query file, -S will stem stopwords.txt, -s allows prestemmed stopwords.txt"<<std::endl; exit(-1);}
 
 int main(int argc, char *argv[]) {
-  MTokenize tokenize; int s=1; char *T=NULL, *S=NULL;
+  MTokenize tokenize; int s=1; char *T=NULL, *S=NULL; bool bstemS=true;
 
   for (;;) {
     if (s<argc && strstr(argv[s],"-M")==argv[s]) { tokenize.bMath=true; s++; }
     else if (s<argc && strstr(argv[s],"-q")==argv[s]) { tokenize.bQuery=true; s++; }
     else if (s<argc && strstr(argv[s],"-T")==argv[s]) { if (s+1>=argc) usage(); T=argv[s+1]; s+=2; }
     else if (s<argc && strstr(argv[s],"-S")==argv[s]) { if (s+1>=argc) usage(); S=argv[s+1]; s+=2; }
+    else if (s<argc && strstr(argv[s],"-s")==argv[s]) { if (s+1>=argc) usage(); S=argv[s+1]; bstemS=false; s+=2; }
     else if (argc-s!=0) usage();
     else break;
   }
 
   // ensure loading of stopwords and keywords happens after other setting (e.g. -M math)
-  if (S!=NULL) tokenize.setS(S);
+  if (S!=NULL) tokenize.setS(S,bstemS);
   if (T!=NULL) tokenize.setT(T);
 
   return tokenize.process();
