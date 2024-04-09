@@ -130,7 +130,7 @@ class MInvert { protected:
     if (s>0) { base+=s; if (e>s) { memcpy(d,d+s,e-s); } e-=s; s=0; } //copy to front
     //std::cerr<<"- READMORE"<<" s="<<s<<" e="<<e<<std::endl;
     if (e==dsize) { dsize*=2; d=(char*)realloc(d,dsize+1); d[dsize]='\0'; if (dsize>1<<25) {std::cerr<<"ERROR: alloc too big, dumping buffer to stdout"<<std::endl; std::cout<<d; exit(-1);} } //grow //null-at-end
-    in.read(d+e,dsize-e); int r=in.gcount(); e+=r;
+    in.read(d+e,std::min(1<<15,dsize-e)); int r=in.gcount(); e+=r; // 32k chunks
     if (e>dsize) {std::cerr<<"ERROR: index read buffer overflow "<<e<<" "<<dsize<<std::endl; exit(-1);}
     d[e]='\0'; // null terminate
     for (char* n=d;n<d+e;++n) { if (*n=='\0') *n=' '; } //drop 0-bytes
@@ -141,7 +141,7 @@ class MInvert { protected:
       //find DOC & DOCNO & DOCHDR
       for (;s<e && isspace(d[s]); s++) {} //skip whitespace
       char* sdoc=strstr(d+s,"<DOC>"); if (sdoc==NULL) goto READMORE;
-      if (s!=sdoc-d) {std::cerr<<"WARNING: non-whitespace between DOCs "<<(sdoc-d)-s<<" "<<std::string(d+s,(sdoc-d)-s)<<std::endl; bwarning=true;}
+        if (s!=sdoc-d) {std::cerr<<"WARNING: non-whitespace between DOCs "<<(sdoc-d)-s<<" "<<std::string(d+s,(sdoc-d)-s)<<std::endl; bwarning=true; s=sdoc-d;}
       char* edoc=strstr(sdoc+5,"</DOC>"); if (edoc==NULL) goto READMORE;
       char* sdocno=strstr(sdoc+5,"<DOCNO>"); if (sdocno==NULL||sdocno>=edoc) {std::cerr<<"ERROR: DOCNO missing"<<std::endl; exit(-1);}
       char* edocno=strstr(sdocno+7,"</DOCNO>"); if (edocno==NULL||sdocno>=edoc) {std::cerr<<"ERROR: /DOCNO missing"<<std::endl; exit(-1);}
