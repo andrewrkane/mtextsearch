@@ -86,7 +86,7 @@ class Dictionary : protected std::map<cchar*, PostingsList, charcmp> { protected
 };
 
 class MInvert { protected:
-  std::vector<std::string> docnames; std::vector<int> docsizes; uint64_t totalpostings; int empty;
+  std::vector<std::string> docnames; std::vector<int> docsizes; uint64_t totalpostings; int empty, pacify;
   MTokenizer tokenizer; Dictionary dict;
 
   void doIndex(int docid, /*in*/MTokenizer::TokenList& tokens) {
@@ -116,7 +116,7 @@ class MInvert { protected:
     // add to index
     doIndex(docid, tokens);
     // pacifier
-    if ((docid+1)%10000==0) { std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now(); std::cerr<<(docid+1) <<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(e-sp).count()<<"ms" <<" dictSize="<<dict.size() <<" totalpostings="<<totalpostings<<std::endl; sp=e; }
+    if ((docid+1)%pacify==0) { std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now(); std::cerr<<(docid+1) <<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(e-sp).count()<<"ms" <<" dictSize="<<dict.size() <<" totalpostings="<<totalpostings<<std::endl; sp=e; }
   }
 
   void doIndexTREC(std::istream& in, cchar* fn) {
@@ -159,7 +159,8 @@ class MInvert { protected:
   }
 
 public:
-  MInvert() { totalpostings=0L; empty=0; }
+  MInvert() { totalpostings=0L; empty=0; pacify=50000; }
+  void setPacify(int p) { pacify=std::max(1,p); }
 
   void input(std::istream& in, cchar* fn) { doIndexTREC(in,fn); }
 
@@ -172,11 +173,13 @@ public:
 };
 
 static void usage() {
-  std::cerr<<"Usage: ./minvert.exe datafile ... > out.mindex"<<std::endl;
-  std::cerr<<"       ./minvert.exe < datafile > out.mindex"<<std::endl; exit(-1); }
+  std::cerr<<"Usage: ./minvert.exe [-p###] datafile ... > out.mindex"<<std::endl;
+  std::cerr<<"       ./minvert.exe [-p###] < datafile > out.mindex"<<std::endl;
+  std::cerr<<" where -p pacifier document count"<<std::endl; exit(-1); }
 
 int main(int argc, char *argv[]) {
   MInvert ms; int s=1;
+  if (s<argc && strstr(argv[s],"-p")==argv[s]) { ms.setPacify(std::stoi(argv[s]+2)); s++; }
   if (argc-s==0) { ms.input(std::cin,"stdin"); } else if (argc-s>0) { for (;s<argc;s++) { std::ifstream in(argv[s]); if (!in) usage(); ms.input(in, argv[s]); } } else usage(); // input
   ms.output(std::cout); // output
   return 0;
