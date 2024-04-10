@@ -28,8 +28,10 @@ class MTokenizer { protected:
   void setupArrays() { set(ws,0,255,false); ws[' ']=ws['\t']=ws['\r']=ws['\n']=true; }
 
 public:
-  class TokenList : protected StringList { protected: std::vector<int> v; //relative to base so realloc works
-    struct charcmp { cchar* d; charcmp(char* base) {d=base;} bool operator()(const int a, const int b) const { return strcmp(d+a, d+b)<0; } };
+  class TokenList : protected StringList { protected:
+    std::vector<int> v; //relative to base so realloc works
+    struct charcmp { cchar* d; charcmp(char* base) {d=base;}
+      bool operator()(const int a, const int b) const { return strcmp(d+a, d+b)<0; } };
   public:
     inline void clear() { v.clear(); StringList::clear(); }
     inline void push_back(cbyte* s, int sl) { v.push_back(addcopy((cchar*)s,sl)-d); }
@@ -39,7 +41,7 @@ public:
     inline void dump() { for (int i=0;i<size();i++) { std::cerr<<(*this)[i]<<" "; } std::cerr<<std::endl; }
   };
   inline MTokenizer() { setupArrays(); }
-  // used by minvert
+  // used by minvert and msearch
   inline void process(cchar* data, int size,/*out*/TokenList& tokens) {
     cbyte* d=(cbyte*)data; cbyte* dend=d+size;
     for(;d<dend;d++) {
