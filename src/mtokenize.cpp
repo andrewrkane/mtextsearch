@@ -47,7 +47,7 @@ public:
           if (*s=='#') { // try to find math tuples
             for (;;d++) {
               if (d>=dend || me[*d]) {
-                if (d>s+3 && ((s[1]=='{' && d[-1]=='}') || (s[1]=='(' && d[-1]==')')) && d[0]=='#' && (d+1>=dend || d[1]==' ')) { d[1]=0; v.push_back((cchar*)s); break; }
+                if (d>s+3 && ((s[1]=='{' && d[-1]=='}') || (s[1]=='(' && d[-1]==')') || (s[1]=='!' && d[-1]=='!')) && d[0]=='#' && (d+1>=dend || d[1]==' ')) { d[1]=0; v.push_back((cchar*)s); break; }
                 else { d=s; break;}
               }
             }
