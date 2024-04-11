@@ -18,10 +18,11 @@ test_%.exe: testsrc/test_%.cpp src/*.hpp
 
 # single index + search
 test1:
-	printf "<DOC>\n<DOCNO>doc1</DOCNO>\nα c <center>b</center>\n</DOC>\n" | ./mstrip.exe | ./minvert.exe > temp_t1.mindex
+	printf "<DOC>\n<DOCNO>doc1</DOCNO>\nα c <center>#!2!# b</center>\n</DOC>\n" | ./mstrip.exe | ./minvert.exe > temp_t1.mindex
 	./mencode.exe temp_t1.mindex
 	echo 'q1; α' | ./msearch.exe temp_t1.mindex
 	echo 'q2; b' | ./msearch.exe temp_t1.mindex
+	echo 'q2; #!5!# b' | ./msearch.exe temp_t1.mindex
 	echo 'q3; c c' | ./msearch.exe temp_t1.mindex
 	echo 'q4; center' | ./msearch.exe temp_t1.mindex
 	rm temp_t[1].mindex*

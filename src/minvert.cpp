@@ -95,10 +95,10 @@ class MInvert { protected:
     // determine frequency of tokens and add to postings lists
     tokens.sort();
     for (int i=0;i<tokens.size();) {
-      cchar* token=tokens[i]; int count=1; i++;
-      while (i<tokens.size() && strcmp(token,tokens[i])==0) { ++count; ++i; }
-      //std::cerr<<token<<":"<<count<<std::endl;
-      dict.add(token, docid, count);
+      cchar* token=tokens[i]; int w=tokens.weight(i); i++;
+      while (i<tokens.size() && strcmp(token,tokens[i])==0) { w+=tokens.weight(i); ++i; }
+      //std::cerr<<token<<":"<<w<<std::endl;
+      dict.add(token, docid, w);
     }
     //for (Dictionary::iterator it=dict.begin();it!=dict.end();++it) { std::cerr<<it->first<<":"<<it->second.size()<<std::endl; }
   }
@@ -109,10 +109,12 @@ class MInvert { protected:
     if (docname.compare("")==0) { std::cerr<<"ERROR: missing docname"<<std::endl; exit(-1); }
     // split into tokens
     tokens.clear(); tokenizer.process(data,size,tokens);
-    if (tokens.size()<=0) { empty++; return; } // drop empty
+    int totalWeight=0; for (int i=0;i<tokens.size();i++) { totalWeight+=tokens.weight(i); }
+    if (totalWeight<=0) { empty++; return; } // drop empty
+    //if (totalWeight!=tokens.size()) std::cerr<<"totalWeight="<<totalWeight<<"\t"<<"tokens.size()="<<tokens.size()<<std::endl;
     // setup document metadata
     int docid=docnames.size(); docnames.push_back(docname);
-    docsizes.push_back(tokens.size()); totalpostings+=tokens.size();
+    docsizes.push_back(totalWeight); totalpostings+=totalWeight;
     // add to index
     doIndex(docid, tokens);
     // pacifier
@@ -166,7 +168,7 @@ public:
 
   void output(std::ostream& out) {
     out<<"text.mindex.1"<<std::endl;
-    int s=docnames.size(); std::cerr<<"Output "<<s<<" docs"<<std::endl;
+    int s=docnames.size(); std::cerr<<"Output "<<s<<" docs, "<<totalpostings<<" totalpostings"<<std::endl;
     out<<s<<std::endl; for (int i=0;i<s;i++) { out<<docsizes[i]<<"\t"<<docnames[i]<<std::endl; } out<<std::endl;
     dict.output(out);
   }
