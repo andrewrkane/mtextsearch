@@ -14,16 +14,15 @@ using namespace std;
 
 enum ProcessMode {accum,drop,output};
 
-int main(int argc, char *argv[]) {
-  // process with tags
-  if (argc!=2) { cerr<<"Usage: ./mextract.exe docno_values.txt < input > output"<<endl; return -1; }
+static inline string mathDOCNO(bool bMath, string s) { if (bMath) { int c=s.find_last_of('_'); if (c>=0) s=s.substr(c+1); } return s; }
+
+static void process(char* fn, bool bMath) {
   // get docs to extract
   set<string> extract;
-  char* fn=argv[1];
   ifstream in(fn); if (!in) {cerr<<"ERROR: invalid "<<fn<<endl; exit(-1);}
-  for (;;) { string line; getline(in, line); if (!in) break; extract.insert(line); }
+  for (;;) { string line; getline(in, line); if (!in) break; extract.insert(mathDOCNO(bMath, line)); }
   cerr<<"Loaded "<<extract.size()<<" DOCNOs for extraction"<<endl;
-  // data from stdin
+  // process with tags from stdin
   int curr=0, size=1<<20; char* buff=(char*)malloc(size); ProcessMode m; int extracted=0, processed=0;
   NEXTDOC:
   m=accum; curr=0;
@@ -34,7 +33,7 @@ int main(int argc, char *argv[]) {
     else if (m==accum) {
       if (line.size()>7 && line.compare(0,7,"<DOCNO>")==0) {
         int e=line.find("</DOCNO>",7);
-        if (e>=0) { string docname=line.substr(7,e-7);
+        if (e>=0) { string docname=mathDOCNO(bMath, line.substr(7,e-7));
           if (extract.find(docname)!=extract.end()) { m=output; cout.write(buff,curr); curr=0; cout<<line<<endl; continue; }
         }
         m=drop; curr=0; continue; // invalid or non-extract DOCNO, so drop
@@ -45,5 +44,12 @@ int main(int argc, char *argv[]) {
   CLEANUPBUFF:
   free(buff); buff=NULL;
   cerr<<"Extracted "<<extracted<<" of "<<processed<<" documents"<<endl;
+}
+
+int main(int argc, char *argv[]) {
+  int s=1; bool bMath=false;
+  if (s<argc && strstr(argv[s],"-M")==argv[s] && *(argv[s]+2)==0) { bMath=true; s++; }
+  if (argc-s!=1) { cerr<<"Usage: ./mextract.exe [-M] docno_values.txt < input > output"<<endl; return -1; }
+  process(argv[s], bMath);
   return 0;
 }
