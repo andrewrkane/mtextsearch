@@ -63,10 +63,13 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
 
   inline void getIterators(/*in*/MTokenizer::TokenList& tokens, /*out*/PLIV& listIters) {
     tokens.sort();
+    int totalWeight=0; for (int i=0;i<tokens.size();i++) { totalWeight+=tokens.weight(i); }
+    float wnorm=(double)tokens.size()/totalWeight;
+    //std::cerr<<"wnorm="<<wnorm<<std::endl;
     for (int i=0;i<tokens.size();) {
       cchar* token=tokens[i]; int w=tokens.weight(i); i++;
       while (i<tokens.size() && strcmp(token,tokens[i])==0) { w+=tokens.weight(i); ++i; }
-      float weight=w/(w+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0f-alpha); }
+      float weight=w*wnorm/(w*wnorm+10.0f); if (bMath) { weight*=(token[0]=='#'?alpha:1.0f-alpha); }
       uint64_t loc=dict->getV(token);
       if (loc==IntDeltaV::UNKNOWN) continue; //not-in-data
 
