@@ -179,7 +179,8 @@ public:
     docs=new DocnamesTwoLayer(metain,metafn.c_str()); metain>>totaltokens; getline(metain,line); if (line.compare("")!=0) {std::cerr<<"ERROR: meta "<<metafn<<" extra totaltokens "<<line<<std::endl; exit(-1);}
     dict=new DictionaryTwoLayer(metain,metafn.c_str()); metain.close();
     //std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now();
-    //std::cerr<<"Input "<<metafn<<" took "<<(double)std::chrono::duration_cast<std::chrono::microseconds>(e-s).count()/1000 <<"ms"<<" (docs="<<docs->size()<<",tt="<<totaltokens<<",terms="<<dict->size()<<")"<<std::endl;
+    //std::cerr<<"Input "<<metafn<<" took "<<(double)std::chrono::duration_cast<std::chrono::microseconds>(e-s).count()/1000 <<"ms"<<std::endl;
+    std::cerr<<"loaded (docs="<<docs->size()<<",tt="<<totaltokens<<",terms="<<dict->size()<<")"<<std::endl;
   }
 
   void dumpDictionary() {
