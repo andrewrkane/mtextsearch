@@ -85,6 +85,9 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
       pli.w*=log(1.0f+((float)doccount-pli.plsize+0.5f)/(pli.plsize+0.5f));
       //std::cerr<<"idf*weight="<<pli.w<<std::endl;
     }
+    //TODO: save non-weighted token count in mindex & meta
+    float fnorm=1.0f; //(double)1238766252/totaltokens;
+    //std::cerr<<"fnorm="<<fnorm<<std::endl;
     // intersect iterators w scoring
     TopkHeap h(k); float T=0.0f;
     std::vector<PLIter*> X; for (int i=0;i<listIters.size();i++) X.push_back(&listIters[i]);
@@ -110,7 +113,8 @@ class MSearch { public: bool bMath; float alpha; protected: int k;
       for (int i=0; i<=Pi; i++) {
         PLIter& pli=*X[i]; if (i==0) docid=pli.id; else if (pli.id!=docid) break;
         // BM25 see https://en.wikipedia.org/wiki/Okapi_BM25
-        float tf=pli.freq*(1.2f+1.0f) / (pli.freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
+        float freq=pli.freq*fnorm;
+        float tf=freq*(1.2f+1.0f) / (freq + 1.2f*(1.0f - 0.75f + 0.75f*docs->getV(docid)/avgDocSize));
         //std::cerr<<"pli.freq="<<pli.freq<<" doclength="<<docs->getV(docid)<<" avgDocSize="<<avgDocSize<<std::endl;
         //std::cerr<<"tf="<<tf<<" tf*w="<<tf*pli.w<<std::endl;
         score += tf*pli.w; Smax -= pli.w*(1.2f+1.0f);
