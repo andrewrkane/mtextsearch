@@ -93,8 +93,10 @@ public:
     }
   }
 
+  inline char* dup(std::string& t) { return (char*)memcpy(malloc(t.size()+1),t.c_str(),t.size()+1); }
+
   inline void loadwords(std::string& line, /*in/out*/ std::set<std::string>& words, bool bstem) {
-    char* data=strdup(line.c_str()); // new owned array TODO: read to editable buffer directly?
+    char* data=dup(line); // new owned array TODO: read to editable buffer directly?
     std::vector<cchar*> v; if (bstem) doProcess(data,line.size(),v); else doProcessNoStem(data,line.size(),v);
     for (int i=0;i<v.size();i++) { words.insert(v[i]); }
     delete data; data=NULL; // cleanup
@@ -107,7 +109,7 @@ public:
   }
 
   void process(std::string& line) {
-    char* data=strdup(line.c_str()); // new owned array TODO: read to editable buffer directly?
+    char* data=dup(line); // new owned array TODO: read to editable buffer directly?
     std::vector<cchar*> v; doProcess(data,line.size(),v);
     if (stopwords.size()>0) removein_dump(v,stopwords); // remove stopwords
     if (bkeywords) removenotin_dump(v,keywords); // remove non-math token if not in keywords
