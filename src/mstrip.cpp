@@ -50,7 +50,7 @@ void process(FILE* out, /*in*/ const char* data, int size, char whitespace=0) {
       case '\r': case '\t': case '\v': case '\f': //case '\n':
         c=' '; break;
     }
-    if (c==' ') { if (whitespace!='\n') whitespace=c; } // collapse whitespace, newline takes presidence
+    if (c==' ') { if (whitespace!='\n') whitespace=c; } // collapse whitespace, newline takes precedence
     else if (c=='\n') { whitespace=c; }
     else { if (whitespace!=0) { putc(whitespace,out); whitespace=0; } putc(c,out); }
   }
@@ -85,11 +85,11 @@ int main(int argc, char *argv[]) {
   for (;;) { getline(std::cin, line); if (!std::cin) goto CLEANUPBUFF;
     if (docHDRLine<=0) {
       if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { std::cout<<line<<std::endl; }
-      else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; }
+      else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; std::cout<<line<<std::endl; }
       else { goto PROCESSLINE; } // no DOCHDR
     } else {
       if (line.compare("</DOCHDR>")==0) { std::cout<<line<<std::endl; break; }
-      else if (docHDRLine<=2) std::cout<<line<<std::endl; // pass through non-processed lines, but only first of DocHDR
+      else if (docHDRLine<2) { docHDRLine++; std::cout<<line<<std::endl; } // pass through non-processed lines, but only first of DocHDR
     }
   }
   for (;;) { getline(std::cin, line); if (!std::cin) goto CLEANUPBUFF;

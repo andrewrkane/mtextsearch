@@ -130,14 +130,14 @@ public:
       for (;;getline(in,line)) { if (!in) return 0;
         if (docHDRLine<=0) {
           if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { std::cout<<line<<std::endl; }
-          else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; }
+          else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; std::cout<<line<<std::endl; }
           else { goto PROCESSLINE; } // no DOCHDR
         } else {
           if (line.compare("</DOCHDR>")==0) { std::cout<<line<<std::endl; break; }
-          else if (docHDRLine<=2) std::cout<<line<<std::endl; // pass through non-processed lines, but only first of DocHDR
+          else if (docHDRLine<2) { docHDRLine++; std::cout<<line<<std::endl; } // pass through non-processed lines, but only first of DocHDR
         }
       }
-      for (;;getline(in,line)) { if (!in) return 0;
+      for (;;) { getline(in,line); if (!in) return 0;
         PROCESSLINE:
         if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; getline(in,line); if (!in) return 0; goto NEXTDOC; }
         else { process(line); }
