@@ -123,11 +123,12 @@ public:
         int s=line.find(';'), t=line.find(' '); if (s>=0 && (t<0 || s<t)) { std::cout<<line.substr(0,s+1)<<" "; line=line.substr(s+1); }
         process(line); }
     } else if (line.compare("<DOC>")!=0) {
-      for (;;getline(in,line)) { if (!in) return 0; process(line); }
+      for (;;getline(in,line)) { if (!in) return 0; process(line); } // process all
     } else {
+      std::cout<<line<<std::endl;
       NEXTDOC:
       int docHDRLine=0;
-      for (;;getline(in,line)) { if (!in) return 0;
+      for (;;) { getline(in,line); if (!in) return 0;
         if (docHDRLine<=0) {
           if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { std::cout<<line<<std::endl; }
           else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; std::cout<<line<<std::endl; }
@@ -139,7 +140,7 @@ public:
       }
       for (;;) { getline(in,line); if (!in) return 0;
         PROCESSLINE:
-        if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; getline(in,line); if (!in) return 0; goto NEXTDOC; }
+        if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; goto NEXTDOC; }
         else { process(line); }
       }
     }
