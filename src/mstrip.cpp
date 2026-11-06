@@ -1,6 +1,6 @@
 // (C) Copyright 2019 Andrew R. J. Kane <arkane (at) uwaterloo.ca>, All Rights Reserved.
-//     Released for academic purposes only, All Other Rights Reserved.
-//     This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
+//   Released for academic purposes only, All Other Rights Reserved.
+//   This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
 
 #include <iostream>
@@ -33,10 +33,11 @@ void setupPR() {
 
 #define REMAIN_8lower(s) i+8<size && tolower(data[i+1])==s[0] && tolower(data[i+2])==s[1] && tolower(data[i+3])==s[2] && tolower(data[i+4])==s[3] && tolower(data[i+5])==s[4] && tolower(data[i+6])==s[5] && tolower(data[i+7])==s[6] && tolower(data[i+8])==s[7]
 
-void strip(FILE* out, /*in*/ char* data, int size, char whitespace=0) {
+void strip(FILE* out, /*in/modified*/ char* data, int size, char whitespace=0) {
+  int iout=0; // write modifications into data
   for (int i=0;i<size;i++) {
     char c=data[i];
-    if (!pr[c]) { if (whitespace!=0) { putc(whitespace,out); whitespace=0; } putc(c,out); continue; }
+    if (!pr[c]) { if (whitespace!=0) { data[iout++]=c; whitespace=0; } data[iout++]=c; continue; }
     switch (c) {
       case '<':
         // html comment
@@ -57,8 +58,9 @@ void strip(FILE* out, /*in*/ char* data, int size, char whitespace=0) {
     }
     if (c==' ') { if (whitespace!='\n') whitespace=c; } // collapse whitespace, newline takes precedence
     else if (c=='\n') { whitespace=c; }
-    else { if (whitespace!=0) { putc(whitespace,out); whitespace=0; } putc(c,out); }
+    else { if (whitespace!=0) { data[iout++]=c; whitespace=0; } data[iout++]=c; }
   }
+  fwrite(data,sizeof(char),iout,out); // write modified data
 }
 
 class MStripCB : public MTREC {
