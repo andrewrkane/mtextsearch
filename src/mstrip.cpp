@@ -37,7 +37,7 @@ void strip(FILE* out, /*in/modified*/ char* data, int size, char whitespace=0) {
   int iout=0; // write modifications into data
   for (int i=0;i<size;i++) {
     char c=data[i];
-    if (!pr[c]) { if (whitespace!=0) { data[iout++]=c; whitespace=0; } data[iout++]=c; continue; }
+    if (!pr[c]) { if (whitespace!=0) { data[iout++]=whitespace; whitespace=0; } data[iout++]=c; continue; }
     switch (c) {
       case '<':
         // html comment
@@ -58,7 +58,7 @@ void strip(FILE* out, /*in/modified*/ char* data, int size, char whitespace=0) {
     }
     if (c==' ') { if (whitespace!='\n') whitespace=c; } // collapse whitespace, newline takes precedence
     else if (c=='\n') { whitespace=c; }
-    else { if (whitespace!=0) { data[iout++]=c; whitespace=0; } data[iout++]=c; }
+    else { if (whitespace!=0) { data[iout++]=whitespace; whitespace=0; } data[iout++]=c; }
   }
   fwrite(data,sizeof(char),iout,out); // write modified data
 }
