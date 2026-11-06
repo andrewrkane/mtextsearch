@@ -1,16 +1,11 @@
 // (C) Copyright 2019 Andrew R. J. Kane <arkane (at) uwaterloo.ca>, All Rights Reserved.
-//     Released for academic purposes only, All Other Rights Reserved.
-//     This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
+//   Released for academic purposes only, All Other Rights Reserved.
+//   This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
 
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <map>
-#include <chrono>
-
 #include "mtokenizer.hpp"
 #include "mtrec.hpp"
 

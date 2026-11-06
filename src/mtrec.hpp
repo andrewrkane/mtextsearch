@@ -45,7 +45,8 @@ READMORE:
     //split data
     if (bwarning) { std::cerr<<"next doc "<<std::string(docname,edocno-docname)<<std::endl; bwarning=false; }
     //std::cerr<<"docname="<<std::string(docname,edocno-docname)<<" contentsize="<<edoc-content<<" content(300)="<<std::string(content,300)<<std::endl;
-    cb.processTREC(sdoc,edoc+6, docname,edocno, (sdochdr==NULL?sdochdr:sdochdr+8),edochdr, content,edoc);
-    s=edoc-d+6;
+    char* fulldoc=(*(edoc+6)=='\n')?edoc+7:edoc+6;
+    cb.processTREC(sdoc,fulldoc, docname,edocno, (sdochdr==NULL?sdochdr:sdochdr+8),edochdr, content,edoc);
+    s=fulldoc-d;
   }
 }

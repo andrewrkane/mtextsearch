@@ -1,14 +1,10 @@
 // (C) Copyright 2019 Andrew R. J. Kane <arkane (at) uwaterloo.ca>, All Rights Reserved.
-//     Released for academic purposes only, All Other Rights Reserved.
-//     This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
+//   Released for academic purposes only, All Other Rights Reserved.
+//   This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
 
-#include <iostream>
 #include <fstream>
-#include <string>
-#include <vector>
 #include <set>
-
 #include "mtrec.hpp"
 #include "porterstemmer.hpp"
 
@@ -41,7 +37,7 @@ public:
   void setT(cchar* keywordsfile) { bkeywords=true; loadwords(keywordsfile, keywords, true); }
   void setS(cchar* stopwordsfile, bool bstem) { loadwords(stopwordsfile, stopwords, bstem); }
 
-  inline void doProcess(char* data, int size, /*in/out*/ std::vector<cchar*>& v) {
+  inline void doProcess(/*in/modified*/ char* data, int size, /*in/out*/ std::vector<cchar*>& v) {
     byte* d=(byte*)data; byte* dend=d+size;
     if (bMath) {
       for(;d<dend;d++) {
@@ -110,11 +106,15 @@ public:
     std::cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<std::endl;
   }
 
-  void process(/*modified*/ char* data, int datasize) {
+  void process(char*& outd, /*in/modified*/ char* data, int datasize) {
     std::vector<cchar*> v; doProcess(data,datasize,v);
     if (stopwords.size()>0) removein_dump(v,stopwords); // remove stopwords
     if (bkeywords) removenotin_dump(v,keywords); // remove non-math token if not in keywords
-    for (int i=0;i<v.size();i++) { std::cout<<(i==0?"":" ")<<v[i]; } std::cout<<std::endl;
+    for (int i=0;i<v.size();i++) {
+      if (i!=0) { *outd++=' '; }
+      for (cchar* k=v[i];*k!=0;*outd++=*k++) {}
+    }
+    *outd++='\n';
   }
 
   int processQueryList() {
@@ -123,16 +123,21 @@ public:
     for (;;getline(in,line)) { if (!in) return 0;
       int s=line.find(';'), t=line.find(' '); if (s>=0 && (t<0 || s<t)) { std::cout<<line.substr(0,s+1)<<" "; line=line.substr(s+1); }
       char* data=dup(line); // new owned array TODO: read to editable buffer directly?
-      process(data, line.size());
+      char* outd=data;
+      process(outd,data,line.size());
+      fwrite(data,sizeof(char),outd-data,stdout);
       delete data; data=NULL; // cleanup
     }
     return 1;
   }
 
   void processTREC(/*in/edited*/ char* sdata, char* edata, char* sdocno, char* edocno, char* sdochdr, char* edochdr, char* scontent, char* econtent) {
-    fwrite(sdata,sizeof(cchar),scontent-sdata,stdout); std::cout<<std::endl;
-    process(scontent,econtent-scontent);
-    fwrite(econtent,sizeof(cchar),edata-econtent,stdout); std::cout<<std::endl;
+    char* e=scontent;
+    if (*e=='\n') e++;
+    process(e,e,econtent-e); // modify data
+    int l=edata-econtent; memcpy(e,econtent,edata-econtent); econtent=e; e+=l; //</DOC>
+    edata=e;
+    fwrite(sdata,sizeof(char),e-sdata,stdout);
   }
 };
 

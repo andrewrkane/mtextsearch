@@ -3,20 +3,12 @@
 //   This software is provided "as is" with no warranties, and the authors are not liable for any damages from its use.
 // project: https://github.com/andrewrkane/mtextsearch
 
-#include <iostream>
 #include <fstream>
-#include <string>
-#include <cstring>
-#include <sstream>
-#include <stdio.h>
-
 #include "mtrec.hpp"
 
 /* read in TREC files, strip html from DOC and output in TREC format */
 
-typedef const char cchar;
-
-static bool pr[256];
+static bool pr[256]; // process
 void setupPR() {
   for (int i=0;i<256;i++) pr[i]=false;
   pr['<']=pr['&']=pr['\r']=pr['\t']=pr['\v']=pr['\f']=pr['\n']=pr[' ']=true;
@@ -33,21 +25,21 @@ void setupPR() {
 
 #define REMAIN_8lower(s) i+8<size && tolower(data[i+1])==s[0] && tolower(data[i+2])==s[1] && tolower(data[i+3])==s[2] && tolower(data[i+4])==s[3] && tolower(data[i+5])==s[4] && tolower(data[i+6])==s[5] && tolower(data[i+7])==s[6] && tolower(data[i+8])==s[7]
 
-void strip(FILE* out, /*in/modified*/ char* data, int size, char whitespace=0) {
-  int iout=0; // write modifications into data
+void strip(/*in/out*/ char*& outd, /*in/modified*/ char* data, int size, char wspace=0) {
+  // write modifications into outd
   for (int i=0;i<size;i++) {
-    char c=data[i];
-    if (!pr[c]) { if (whitespace!=0) { data[iout++]=whitespace; whitespace=0; } data[iout++]=c; continue; }
+    if (!pr[(unsigned char)data[i]]) { if (wspace!=0) { *outd++=wspace; wspace=0; } *outd++=data[i]; continue; }
+    unsigned char c=data[i];
     switch (c) {
       case '<':
         // html comment
-        if (REMAIN_3("!--")) { for (i+=4;i<size;i++) { c=data[i]; if (c=='-'&& REMAIN_2("->")) { i+=2; break; } } c=' '; }
+        if (REMAIN_3("!--")) { for (i+=4;i<size;i++) { if (data[i]=='-'&& REMAIN_2("->")) { i+=2; break; } } c=' '; }
         // script tag
-        else if (REMAIN_6lower("script")) { for (i+=7;i<size;i++) { c=data[i]; if (c=='<'&& REMAIN_8lower("/script>")) { i+=8; break; } } c=' '; }
+        else if (REMAIN_6lower("script")) { for (i+=7;i<size;i++) { if (data[i]=='<'&& REMAIN_8lower("/script>")) { i+=8; break; } } c=' '; }
         // style tag
-        else if (REMAIN_5lower("style")) { for (i+=6;i<size;i++) { c=data[i]; if (c=='<'&& REMAIN_7lower("/style>")) { i+=7; break; } } c=' '; }
+        else if (REMAIN_5lower("style")) { for (i+=6;i<size;i++) { if (data[i]=='<'&& REMAIN_7lower("/style>")) { i+=7; break; } } c=' '; }
         // other tags
-        else { for (i++;i<size;i++) { c=data[i]; if (c=='>') { break; } } c=' '; }
+        else { for (i++;i<size;i++) { if (data[i]=='>') { break; } } c=' '; }
         break;
       case '&':
         // html &nbsp; escaping
@@ -56,24 +48,26 @@ void strip(FILE* out, /*in/modified*/ char* data, int size, char whitespace=0) {
       case '\r': case '\t': case '\v': case '\f': //case '\n':
         c=' '; break;
     }
-    if (c==' ') { if (whitespace!='\n') whitespace=c; } // collapse whitespace, newline takes precedence
-    else if (c=='\n') { whitespace=c; }
-    else { if (whitespace!=0) { data[iout++]=whitespace; whitespace=0; } data[iout++]=c; }
+    if (c==' ') { if (wspace!='\n') wspace=c; } // collapse whitespace, newline takes precedence
+    else if (c=='\n') { wspace=c; }
+    else { if (wspace!=0) { *outd++=wspace; wspace=0; } *outd++=c; }
   }
-  fwrite(data,sizeof(char),iout,out); // write modified data
+  if (wspace!=0) { *outd++=wspace; wspace=0; }
 }
 
 class MStripCB : public MTREC {
   void processTREC(/*in/edited*/ char* sdata, char* edata, char* sdocno, char* edocno, char* sdochdr, char* edochdr, char* scontent, char* econtent) {
-    if (sdochdr==edochdr) {
-      fwrite(sdata,sizeof(cchar),scontent-sdata,stdout);
-    } else {
+    // write into data array, update pointers so can call next processTREC in chain
+    char* e=scontent;
+    if (sdochdr!=edochdr) {
       // only output first line of DOCHDR
-      char* e=sdochdr; if (*e=='\n') e++; for (;e<edochdr&&*e!='\n';e++) {}
-      fwrite(sdata,sizeof(cchar),e-sdata,stdout); std::cout<<std::endl<<"</DOCHDR>";
+      e=sdochdr; if (*e=='\n') e++; for (;e<edochdr;e++) { if (*e=='\n') { e++; break; } }
+      int l=scontent-edochdr; memcpy(e,edochdr,l); edochdr=e; e+=l; //</DOCHDR>
     }
-    ::strip(stdout,scontent,econtent-scontent); std::cout<<std::endl;
-    fwrite(econtent,sizeof(cchar),edata-econtent,stdout); std::cout<<std::endl;
+    strip(e,scontent,econtent-scontent); // modify data
+    int l=edata-econtent; memcpy(e,econtent,edata-econtent); econtent=e; e+=l; //</DOC>
+    edata=e;
+    fwrite(sdata,sizeof(char),e-sdata,stdout);
   }
 };
 
