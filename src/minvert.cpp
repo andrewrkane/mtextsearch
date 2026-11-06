@@ -12,6 +12,7 @@
 #include <chrono>
 
 #include "mtokenizer.hpp"
+#include "mtrec.hpp"
 
 /* read in TREC files (optionally via mstrip), invert the text, output mindex file */
 
@@ -85,7 +86,7 @@ class Dictionary : protected std::map<cchar*, PostingsList, charcmp> { protected
     for (iterator it=begin();it!=end();++it) { out<<it->first<<"\t"; it->second.output(out); out<<std::endl; } }
 };
 
-class MInvert { protected:
+class MInvert : public MTREC { protected:
   std::vector<std::string> docnames; std::vector<int> docsizes; uint64_t totalpostings; int empty, pacify;
   MTokenizer tokenizer; Dictionary dict;
 
@@ -121,50 +122,13 @@ class MInvert { protected:
     if ((docid+1)%pacify==0) { std::chrono::high_resolution_clock::time_point e=std::chrono::high_resolution_clock::now(); std::cerr<<(docid+1) <<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(e-sp).count()<<"ms" <<" dictSize="<<dict.size() <<" totalpostings="<<totalpostings<<std::endl; sp=e; }
   }
 
-  void doIndexTREC(std::istream& in, cchar* fn) {
-    bool bwarning=false;
-    sp=std::chrono::high_resolution_clock::now();
-    uint64_t base=0; int s,e,dsize=1<<20; char* d=(char*)malloc(dsize+1); d[dsize]='\0'; //null-at-end
-    in.read(d,4); s=0; e=in.gcount(); if (e<=0) {std::cerr<<"ERROR: Empty "<<fn<<std::endl; exit(-1);}
-    if (e<4||memcmp(d,"<DOC>",4)!=0) {std::cerr<<"ERROR: format "<<fn<<" found "<<d<<std::endl; exit(-1);}
-  READMORE:
-    //std::cerr<<"READMORE"<<" s="<<s<<" e="<<e<<std::endl; //cerr.write(d,10); cerr<<std::endl;
-    if (s>0) { base+=s; if (e>s) { memcpy(d,d+s,e-s); } e-=s; s=0; } //copy to front
-    //std::cerr<<"- READMORE"<<" s="<<s<<" e="<<e<<std::endl;
-    if (e==dsize) { dsize*=2; d=(char*)realloc(d,dsize+1); d[dsize]='\0'; if (dsize>1<<25) {std::cerr<<"ERROR: alloc too big, dumping buffer to stdout"<<std::endl; std::cout<<d; exit(-1);} } //grow //null-at-end
-    in.read(d+e,std::min(1<<15,dsize-e)); int r=in.gcount(); e+=r; // 32k chunks
-    if (e>dsize) {std::cerr<<"ERROR: index read buffer overflow "<<e<<" "<<dsize<<std::endl; exit(-1);}
-    d[e]='\0'; // null terminate
-    for (char* n=d;n<d+e;++n) { if (*n=='\0') *n=' '; } //drop 0-bytes
-    if (e==0) { if (d!=NULL) free(d); d=NULL; return; } //cleanup and exit
-    if (r==0) { std::cerr<<"WARNING: invalid final DOC "<<(e-s)<<" "<<std::string(d+s,e-s)<<std::endl; return;}
-    //process
-    for (;;) {
-      //find DOC & DOCNO & DOCHDR
-      for (;s<e && isspace(d[s]); s++) {} //skip whitespace
-      char* sdoc=strstr(d+s,"<DOC>"); if (sdoc==NULL) goto READMORE;
-        if (s!=sdoc-d) {std::cerr<<"WARNING: non-whitespace between DOCs "<<(sdoc-d)-s<<" "<<std::string(d+s,(sdoc-d)-s)<<std::endl; bwarning=true; s=sdoc-d;}
-      char* edoc=strstr(sdoc+5,"</DOC>"); if (edoc==NULL) goto READMORE;
-      char* sdocno=strstr(sdoc+5,"<DOCNO>"); if (sdocno==NULL||sdocno>=edoc) {std::cerr<<"ERROR: DOCNO missing"<<std::endl; exit(-1);}
-      char* edocno=strstr(sdocno+7,"</DOCNO>"); if (edocno==NULL||sdocno>=edoc) {std::cerr<<"ERROR: /DOCNO missing"<<std::endl; exit(-1);}
-      char* sdochdr=strstr(edocno+8,"<DOCHDR>");
-      char* edochdr=strstr(edocno+8,"</DOCHDR>");
-      char* content=(edochdr==NULL?edocno+8:edochdr+9); // content = </DOCHDR>...</DOC> or </DOCNO>...</DOC>
-      //char* content=sdochdr+9; // content = <DOCHDR>...</DOC>
-      char* docname=sdocno+7;
-      //split data
-      if (bwarning) { std::cerr<<"next doc "<<std::string(docname,edocno-docname)<<std::endl; bwarning=false; }
-      //std::cerr<<"docname="<<std::string(docname,edocno-docname)<<" contentsize="<<edoc-content<<" content(300)="<<std::string(content,300)<<std::endl;
-      doIndex(std::string(docname,edocno-docname),content,edoc-content);
-      s=edoc-d+6;
-    }
+  void processTREC(/*in/edited*/ char* sdata, char* edata, char* sdocno, char* edocno, char* sdochdr, char* edochdr, char* scontent, char* econtent) {
+    doIndex(std::string(sdocno,edocno-sdocno),scontent,econtent-scontent);
   }
 
 public:
-  MInvert() { totalpostings=0L; empty=0; pacify=50000; }
+  MInvert() { totalpostings=0L; empty=0; pacify=50000; sp=std::chrono::high_resolution_clock::now(); }
   void setPacify(int p) { pacify=std::max(1,p); }
-
-  void input(std::istream& in, cchar* fn) { doIndexTREC(in,fn); }
 
   void output(std::ostream& out) {
     out<<"text.mindex.1"<<std::endl;
@@ -182,7 +146,7 @@ static void usage() {
 int main(int argc, char *argv[]) {
   MInvert ms; int s=1;
   if (s<argc && strstr(argv[s],"-p")==argv[s]) { ms.setPacify(std::stoi(argv[s]+2)); s++; }
-  if (argc-s==0) { ms.input(std::cin,"stdin"); } else if (argc-s>0) { for (;s<argc;s++) { std::ifstream in(argv[s]); if (!in) usage(); ms.input(in, argv[s]); } } else usage(); // input
+  if (argc-s==0) { doTREC(std::cin,"stdin",ms); } else if (argc-s>0) { for (;s<argc;s++) { std::ifstream in(argv[s]); if (!in) usage(); doTREC(in,argv[s],ms); } } else usage(); // input
   ms.output(std::cout); // output
   return 0;
 }

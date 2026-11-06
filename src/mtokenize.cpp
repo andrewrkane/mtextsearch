@@ -9,6 +9,7 @@
 #include <vector>
 #include <set>
 
+#include "mtrec.hpp"
 #include "porterstemmer.hpp"
 
 // == tokenize ======================================================
@@ -28,7 +29,8 @@ inline void removenotin_dump(std::vector<cchar*>& v, const std::set<std::string>
   int drop=0; for (int i=0; i<v.size(); i++) { if (v[i][0]!='#' && words.find(v[i])==words.end()) { std::cerr<<v[i]<<" "; drop++; } else v[i-drop]=v[i]; } v.resize(v.size()-drop); std::cerr<<std::endl;
 }
 
-class MTokenize { public: bool bMath, bQuery; protected: bool bkeywords; std::set<std::string> keywords; std::set<std::string> stopwords;
+class MTokenize : public MTREC {
+public: bool bMath, bQuery; protected: bool bkeywords; std::set<std::string> keywords; std::set<std::string> stopwords;
   bool me[256], tk[256], tkmath[256]; inline void set(bool* t, int s, int e, bool v=true) { for (int i=s;i<=e;i++) t[i]=v; }
   void setupArrays() { set(me,0,255,false); me[0]=me[' ']=me['\t']=me['\r']=me['\n']=me['#']=true;
     set(tk,0,127,false); set(tk,128,255); set(tk,'a','z'); set(tk,'A','Z'); set(tk,'0','9');
@@ -108,44 +110,29 @@ public:
     std::cerr<<"loaded "<<words.size()<<" words from "<<wordsfile<<std::endl;
   }
 
-  void process(std::string& line) {
-    char* data=dup(line); // new owned array TODO: read to editable buffer directly?
-    std::vector<cchar*> v; doProcess(data,line.size(),v);
+  void process(/*modified*/ char* data, int datasize) {
+    std::vector<cchar*> v; doProcess(data,datasize,v);
     if (stopwords.size()>0) removein_dump(v,stopwords); // remove stopwords
     if (bkeywords) removenotin_dump(v,keywords); // remove non-math token if not in keywords
     for (int i=0;i<v.size();i++) { std::cout<<(i==0?"":" ")<<v[i]; } std::cout<<std::endl;
-    delete data; data=NULL; // cleanup
   }
 
-  int process() {
+  int processQueryList() {
     std::istream& in = std::cin;
     std::string line; getline(in,line); if (!in) return 0;
-    if (bQuery) {
-      for (;;getline(in,line)) { if (!in) return 0;
-        int s=line.find(';'), t=line.find(' '); if (s>=0 && (t<0 || s<t)) { std::cout<<line.substr(0,s+1)<<" "; line=line.substr(s+1); }
-        process(line); }
-    } else if (line.compare("<DOC>")!=0) {
-      for (;;getline(in,line)) { if (!in) return 0; process(line); } // process all
-    } else {
-      std::cout<<line<<std::endl;
-      NEXTDOC:
-      int docHDRLine=0;
-      for (;;) { getline(in,line); if (!in) return 0;
-        if (docHDRLine<=0) {
-          if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { std::cout<<line<<std::endl; }
-          else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; std::cout<<line<<std::endl; }
-          else { goto PROCESSLINE; } // no DOCHDR
-        } else {
-          if (line.compare("</DOCHDR>")==0) { std::cout<<line<<std::endl; break; }
-          else if (docHDRLine<2) { docHDRLine++; std::cout<<line<<std::endl; } // pass through non-processed lines, but only first of DocHDR
-        }
-      }
-      for (;;) { getline(in,line); if (!in) return 0;
-        PROCESSLINE:
-        if (line.compare("</DOC>")==0) { std::cout<<line<<std::endl; goto NEXTDOC; }
-        else { process(line); }
-      }
+    for (;;getline(in,line)) { if (!in) return 0;
+      int s=line.find(';'), t=line.find(' '); if (s>=0 && (t<0 || s<t)) { std::cout<<line.substr(0,s+1)<<" "; line=line.substr(s+1); }
+      char* data=dup(line); // new owned array TODO: read to editable buffer directly?
+      process(data, line.size());
+      delete data; data=NULL; // cleanup
     }
+    return 1;
+  }
+
+  void processTREC(/*in/edited*/ char* sdata, char* edata, char* sdocno, char* edocno, char* sdochdr, char* edochdr, char* scontent, char* econtent) {
+    fwrite(sdata,sizeof(cchar),scontent-sdata,stdout); std::cout<<std::endl;
+    process(scontent,econtent-scontent);
+    fwrite(econtent,sizeof(cchar),edata-econtent,stdout); std::cout<<std::endl;
   }
 };
 
@@ -168,5 +155,9 @@ int main(int argc, char *argv[]) {
   if (S!=NULL) tokenize.setS(S,bstemS);
   if (T!=NULL) tokenize.setT(T);
 
-  return tokenize.process();
+  // TODO: handle single input document rather than TREC format
+  if (tokenize.bQuery) return tokenize.processQueryList();
+  else doTREC(std::cin,"stdin",tokenize);
+
+  return 1;
 }

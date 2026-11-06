@@ -4,12 +4,17 @@
 // project: https://github.com/andrewrkane/mtextsearch
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <cstring>
 #include <sstream>
 #include <stdio.h>
 
+#include "mtrec.hpp"
+
 /* read in TREC files, strip html from DOC and output in TREC format */
+
+typedef const char cchar;
 
 static bool pr[256];
 void setupPR() {
@@ -28,9 +33,9 @@ void setupPR() {
 
 #define REMAIN_8lower(s) i+8<size && tolower(data[i+1])==s[0] && tolower(data[i+2])==s[1] && tolower(data[i+3])==s[2] && tolower(data[i+4])==s[3] && tolower(data[i+5])==s[4] && tolower(data[i+6])==s[5] && tolower(data[i+7])==s[6] && tolower(data[i+8])==s[7]
 
-void process(FILE* out, /*in*/ const char* data, int size, char whitespace=0) {
+void strip(FILE* out, /*in*/ char* data, int size, char whitespace=0) {
   for (int i=0;i<size;i++) {
-    unsigned char c=data[i];
+    char c=data[i];
     if (!pr[c]) { if (whitespace!=0) { putc(whitespace,out); whitespace=0; } putc(c,out); continue; }
     switch (c) {
       case '<':
@@ -56,55 +61,28 @@ void process(FILE* out, /*in*/ const char* data, int size, char whitespace=0) {
   }
 }
 
+class MStripCB : public MTREC {
+  void processTREC(/*in/edited*/ char* sdata, char* edata, char* sdocno, char* edocno, char* sdochdr, char* edochdr, char* scontent, char* econtent) {
+    if (sdochdr==edochdr) {
+      fwrite(sdata,sizeof(cchar),scontent-sdata,stdout);
+    } else {
+      // only output first line of DOCHDR
+      char* e=sdochdr; if (*e=='\n') e++; for (;e<edochdr&&*e!='\n';e++) {}
+      fwrite(sdata,sizeof(cchar),e-sdata,stdout); std::cout<<std::endl<<"</DOCHDR>";
+    }
+    ::strip(stdout,scontent,econtent-scontent); std::cout<<std::endl;
+    fwrite(econtent,sizeof(cchar),edata-econtent,stdout); std::cout<<std::endl;
+  }
+};
+
+static void usage() {
+  std::cerr<<"Usage: ./mstrip.exe datafile ... "<<std::endl;
+  std::cerr<<"       ./mstrip.exe < datafile"<<std::endl;
+}
+
 int main(int argc, char *argv[]) {
+  MStripCB cb; int s=1;
   setupPR();
-  // process all input without DOC,DOCNO,DOCHDR tags
-  if (argc==2 && strstr(argv[1],"-x")==argv[1]) {
-    std::ostringstream buffer; buffer<<std::cin.rdbuf(); // read all
-    std::string data = buffer.str(); process(stdout,data.c_str(),data.length()); std::cout<<std::endl; // process
-    return 0;
-  }
-  if (argc==2 && strstr(argv[1],"-q")==argv[1]) {
-    for (bool bfirst=true;;) { std::string line; getline(std::cin, line); if (!std::cin) break;
-      int tstart=line.rfind("Query topic=\"");
-      if (tstart>=0) { tstart+=13;
-        int tend=line.find("\"",tstart);
-        if (tend>=0) { if (bfirst) bfirst=false; else std::cout<<std::endl; std::cout<<line.substr(tstart,tend-tstart)<<";"; continue; }
-      }
-      process(stdout,line.c_str(),line.length(),(tstart>=0?0:' '));
-    } std::cout<<std::endl;
-    return 0;
-  }
-  // process with tags
-  if (argc!=1) { std::cerr<<"Usage: ./mstrip.exe [-x|-q] < input > output"<<std::endl<<"   where -x = no DOC tags, -q = math query file"; return -1; }
-  // data from stdin
-  int curr=0, size=1<<20; char* buff=(char*)malloc(size);
-  NEXTDOC:
-  std::string line;
-  int docHDRLine=0;
-  for (;;) { getline(std::cin, line); if (!std::cin) goto CLEANUPBUFF;
-    if (docHDRLine<=0) {
-      if (line.compare("<DOC>")==0 || line.find("<DOCNO>")==0) { std::cout<<line<<std::endl; }
-      else if (line.compare("<DOCHDR>")==0 || docHDRLine>0) { docHDRLine++; std::cout<<line<<std::endl; }
-      else { goto PROCESSLINE; } // no DOCHDR
-    } else {
-      if (line.compare("</DOCHDR>")==0) { std::cout<<line<<std::endl; break; }
-      else if (docHDRLine<2) { docHDRLine++; std::cout<<line<<std::endl; } // pass through non-processed lines, but only first of DocHDR
-    }
-  }
-  for (;;) { getline(std::cin, line); if (!std::cin) goto CLEANUPBUFF;
-    PROCESSLINE:
-    if (line.compare("</DOC>")==0) {
-      process(stdout,buff,curr); std::cout<<std::endl; curr=0; // process accumulated at end of doc
-      std::cout<<line<<std::endl; // pass through non-processed lines
-      goto NEXTDOC;
-    } else {
-      int len=line.length();
-      while (curr+len+1>size) { size*=2; buff=(char*)realloc(buff,size); } // grow
-      memcpy(&buff[curr],line.c_str(),len); curr+=len; buff[curr++]='\n'; // accumulate
-    }
-  }
-  CLEANUPBUFF:
-  free(buff); buff=NULL;
+  if (argc-s==0) { doTREC(std::cin,"stdin",cb); } else if (argc-s>0) { for (;s<argc;s++) { std::ifstream in(argv[s]); if (!in) usage(); doTREC(in,argv[s],cb); } } else usage(); // input
   return 0;
 }
