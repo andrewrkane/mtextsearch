@@ -110,6 +110,7 @@ public:
     std::vector<cchar*> v; doProcess(data,datasize,v);
     if (stopwords.size()>0) removein_dump(v,stopwords); // remove stopwords
     if (bkeywords) removenotin_dump(v,keywords); // remove non-math token if not in keywords
+    if (v.size()<=0) return;
     for (int i=0;i<v.size();i++) {
       if (i!=0) { *outd++=' '; }
       for (cchar* k=v[i];*k!=0;*outd++=*k++) {}
@@ -135,7 +136,8 @@ public:
     char* e=scontent;
     if (*e=='\n') e++;
     process(e,e,econtent-e); // modify data
-    int l=edata-econtent; memcpy(e,econtent,edata-econtent); econtent=e; e+=l; //</DOC>
+    int l=edata-econtent; memcpy(e,econtent,l); econtent=e; e+=l; //</DOC>
+    //if (e>edata) { std::cerr<<"ERROR:e="<<e-sdata<<" edata="<<edata-sdata<<std::endl; std::cerr.write(sdata,e-sdata); exit(1); }
     edata=e;
     fwrite(sdata,sizeof(char),e-sdata,stdout);
   }

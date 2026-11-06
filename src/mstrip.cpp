@@ -66,6 +66,7 @@ class MStripCB : public MTREC {
     }
     strip(e,scontent,econtent-scontent); // modify data
     int l=edata-econtent; memcpy(e,econtent,edata-econtent); econtent=e; e+=l; //</DOC>
+    //if (e>edata) { std::cerr<<"ERROR:e="<<e-sdata<<" edata="<<edata-sdata<<std::endl; std::cerr.write(sdata,e-sdata); exit(1); }
     edata=e;
     fwrite(sdata,sizeof(char),e-sdata,stdout);
   }
